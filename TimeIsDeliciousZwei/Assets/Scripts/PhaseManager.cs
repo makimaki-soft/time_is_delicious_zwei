@@ -60,14 +60,12 @@ public class PhaseManager : MonoBehaviour
     // Dependency
     public ITimeIsDeliciousZwei GameMagager { private get; set; }
 
-    
-
     // Notify
-    private Subject<Phase> _phaseSubject = new Subject<Phase>();
+    private Subject<Unit> _phaseSubject = new Subject<Unit>();
     public void FinishPhase(Phase phase)
     {
         _phaseFlag[phase] = true;
-        _phaseSubject.OnNext(phase);
+        _phaseSubject.OnNext(Unit.Default);
     }
 
     private Subject<int> _playerIdxSubject = new Subject<int>();
@@ -103,11 +101,10 @@ public class PhaseManager : MonoBehaviour
         Observable.FromCoroutine(PhaseControl).Subscribe().AddTo(gameObject);
     }
 
-    private ObservableYieldInstruction<Phase> SyncPhase(Phase phase)
+    private ObservableYieldInstruction<bool> SyncPhase(Phase phase)
     {
-        return _phaseSubject.Where(ph => ph == phase).FirstOrDefault().ToYieldInstruction();
+        return _phaseSubject.StartWith(Unit.Default).Select(_ => _phaseFlag[phase]).Where(b=>b).FirstOrDefault().ToYieldInstruction();
     }
-
 
     Dictionary<Phase, bool> _phaseFlag = new Dictionary<Phase, bool>();
     Dictionary<int, bool> _turnFlag = new Dictionary<int, bool>();
@@ -123,11 +120,9 @@ public class PhaseManager : MonoBehaviour
         _round.Value = 0;
 
         _phase.Value = Phase.GamePreparation;
-        while(!_phaseFlag[Phase.GamePreparation])
-        {
-            yield return SyncPhase(Phase.GamePreparation);
-        }
 
+        yield return SyncPhase(Phase.GamePreparation);
+        
         for(_round.Value = 1; /* forever */ ; _round.Value++)
         {
             foreach (Phase phase in Enum.GetValues(typeof(Phase)))
@@ -164,18 +159,12 @@ public class PhaseManager : MonoBehaviour
                 }   
             }
 
-            while (!_phaseFlag[Phase.PlayerAction])
-            {
-                yield return SyncPhase(Phase.PlayerAction);
-            }
+            yield return SyncPhase(Phase.PlayerAction);
             
             _phase.Value = Phase.Putrefy;
 
             // 腐敗トークン処理の待ち合わせ
-            while (!_phaseFlag[Phase.Putrefy])
-            {
-                yield return SyncPhase(Phase.Putrefy);
-            } 
+            yield return SyncPhase(Phase.Putrefy);
 
             _phase.Value = Phase.CashOut;
 
@@ -199,10 +188,7 @@ public class PhaseManager : MonoBehaviour
                 }
             }
 
-            while (!_phaseFlag[Phase.CashOut])
-            {
-                yield return SyncPhase(Phase.CashOut);
-            }
+            yield return SyncPhase(Phase.CashOut);
 
             if (EndFlag.Value)
             {
@@ -225,18 +211,12 @@ public class PhaseManager : MonoBehaviour
                 }
             }
 
-            while (!_phaseFlag[Phase.FoodPreparation])
-            {
-                yield return SyncPhase(Phase.FoodPreparation);
-            }
+            yield return SyncPhase(Phase.FoodPreparation);
 
             _phase.Value = Phase.Aging;
 
             // 日数経過を待ち合わせ
-            while (!_phaseFlag[Phase.Aging])
-            {
-                yield return SyncPhase(Phase.Aging);
-            }
+            yield return SyncPhase(Phase.Aging);
         }
 
         _phase.Value = Phase.Ending;
