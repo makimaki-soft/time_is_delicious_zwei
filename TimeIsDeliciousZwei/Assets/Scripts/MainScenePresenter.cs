@@ -77,11 +77,11 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onGamePreparation()
     {
-        Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        {
+        //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
+        //{
             Debug.Log("onPreparation End");
             _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
-        });
+        //});
     }
 
     void onPlayerAction()
@@ -93,27 +93,30 @@ public class MainScenePresenter : MonoBehaviour {
             _phaseManager.TurnCount.Subscribe(count =>
             {
                 Debug.Log("count " + count.ToString());
-                Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvanceTurn(count));
+                //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvanceTurn(count));
+                _phaseManager.AdvanceTurn(count);
             },
             () =>
             {
-                Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
+                // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
+                _phaseManager.AdvancePlayer(index);
             });
         },
         () =>
         {
             Debug.Log("onPlayerAction End");
-            Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.PlayerAction));
+            // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.PlayerAction));
+            _phaseManager.FinishPhase(PhaseManager.Phase.PlayerAction);
         }).AddTo(phaseRangedDisposable);
     }
 
     void onPutrefy()
     {
-        Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        {
+        //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
+        //{
             Debug.Log("onPutrefy End");
             _phaseManager.FinishPhase(PhaseManager.Phase.Putrefy);
-        });
+        //});
     }
 
     void onCashOut()
@@ -122,12 +125,14 @@ public class MainScenePresenter : MonoBehaviour {
         {
             // CashOut Phaseでindex番目プレイヤーがやることを書く
             Debug.Log("player " + index.ToString());
-            Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
+            //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
+            _phaseManager.AdvancePlayer(index);
         },
         ()=>
         {
             Debug.Log("onCashOut End");
-            Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.CashOut));
+            //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.CashOut));
+            _phaseManager.FinishPhase(PhaseManager.Phase.CashOut);
         }).AddTo(phaseRangedDisposable);
     }
 
@@ -137,12 +142,14 @@ public class MainScenePresenter : MonoBehaviour {
         {
             // CashOut Phaseでindex番目プレイヤーがやることを書く
             Debug.Log("player " + index.ToString());
-            Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
+            // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
+            _phaseManager.AdvancePlayer(index);
         },
         () =>
         {
             Debug.Log("onFoodPreparation End");
-            Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.FoodPreparation));
+            // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.FoodPreparation));
+            _phaseManager.FinishPhase(PhaseManager.Phase.FoodPreparation);
         }).AddTo(phaseRangedDisposable);
     }
 
@@ -157,10 +164,10 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onEnding()
     {
-        Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        {
+        //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
+        //{
             Debug.Log("onEnding End");
             _phaseManager.FinishPhase(PhaseManager.Phase.Ending);
-        });
+        //});
     }
 }

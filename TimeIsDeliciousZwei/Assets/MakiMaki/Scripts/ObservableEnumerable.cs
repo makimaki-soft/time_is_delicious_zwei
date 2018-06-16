@@ -56,7 +56,7 @@ public class ObservableEnumerator<T> : IEnumerator<T>
 
 public class ObservableEnumerable<T> : IEnumerable<T>
 {
-    public ObservableEnumerable(IEnumerable<T> src)
+    public ObservableEnumerable(ICollection<T> src)
     {
         _srcEnumerable = src;
         _observableEnum = new ObservableEnumerator<T>();
@@ -85,7 +85,12 @@ public class ObservableEnumerable<T> : IEnumerable<T>
         }
     }
 
-    IEnumerable<T> _srcEnumerable;
+    public int Count
+    {
+        get { return _srcEnumerable.Count; }
+    }
+
+    ICollection<T> _srcEnumerable;
     ObservableEnumerator<T> _observableEnum;
 }
 

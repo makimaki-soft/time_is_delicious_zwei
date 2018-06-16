@@ -24,7 +24,7 @@ public class PhaseManager : MonoBehaviour
     {
         get
         {
-            return _phase.DelayFrame(1).ToReactiveProperty();
+            return _phase;
         }
     }
 
@@ -33,7 +33,7 @@ public class PhaseManager : MonoBehaviour
     {
         get
         {
-            return _round.DelayFrame(1).ToReactiveProperty();
+            return _round;
         }
     }
 
@@ -42,7 +42,7 @@ public class PhaseManager : MonoBehaviour
     {
         get
         {
-            return _playerIdx.IterationAsObservable.DelayFrame(1);
+            return _playerIdx.IterationAsObservable;
         }
     }
 
@@ -51,7 +51,7 @@ public class PhaseManager : MonoBehaviour
     {
         get
         {
-            return _turn.IterationAsObservable.DelayFrame(1);
+            return _turn.IterationAsObservable;
         }
     }
 
@@ -60,22 +60,27 @@ public class PhaseManager : MonoBehaviour
     // Dependency
     public ITimeIsDeliciousZwei GameMagager { private get; set; }
 
+    
+
     // Notify
     private Subject<Phase> _phaseSubject = new Subject<Phase>();
     public void FinishPhase(Phase phase)
     {
+        _phaseFlag[phase] = true;
         _phaseSubject.OnNext(phase);
     }
 
     private Subject<int> _playerIdxSubject = new Subject<int>();
     public void AdvancePlayer(int index)
     {
+        _playerFlag[index] = true;
         _playerIdxSubject.OnNext(index);
     }
 
     private Subject<int> _turnSubject = new Subject<int>();
     public void AdvanceTurn(int turn)
     {
+        _turnFlag[turn] = true;
         _turnSubject.OnNext(turn);
     }
 
@@ -103,52 +108,101 @@ public class PhaseManager : MonoBehaviour
         return _phaseSubject.Where(ph => ph == phase).FirstOrDefault().ToYieldInstruction();
     }
 
+
+    Dictionary<Phase, bool> _phaseFlag = new Dictionary<Phase, bool>();
+    Dictionary<int, bool> _turnFlag = new Dictionary<int, bool>();
+    Dictionary<int, bool> _playerFlag = new Dictionary<int, bool>();
+
     IEnumerator PhaseControl()
     {
+        foreach (Phase phase in Enum.GetValues(typeof(Phase)))
+        {
+            _phaseFlag[phase] = false;
+        }
+
         _round.Value = 0;
 
         _phase.Value = Phase.GamePreparation;
-
-        yield return SyncPhase(Phase.GamePreparation);
+        while(!_phaseFlag[Phase.GamePreparation])
+        {
+            yield return SyncPhase(Phase.GamePreparation);
+        }
 
         for(_round.Value = 1; /* forever */ ; _round.Value++)
         {
+            foreach (Phase phase in Enum.GetValues(typeof(Phase)))
+            {
+                _phaseFlag[phase] = false;
+            }
+
             _phase.Value = Phase.PlayerAction;
-            yield return null; // indexのsubscribeのために1フレーム待つ。条件変数方式にすべき
-            yield return null;
+
+            for (int i = 0; i < _playerIdx.Count; i++)
+            {
+                _playerFlag[i] = false;
+            }
 
             foreach (var index in _playerIdx)
             {
-                yield return null;
-                yield return null;
+                for (int i = 0; i < _turn.Count; i++)
+                {
+                    _turnFlag[i] = false;
+                }
 
                 foreach (var cnt in _turn)
                 {
-                    yield return _turnSubject.Where(idx => cnt == idx).FirstOrDefault().ToYieldInstruction(); // プレイヤーのアクション実行を待ち合わせ 
+
+                    while(!_turnFlag[cnt])
+                    {
+                        yield return _turnSubject.Where(idx => cnt == idx).FirstOrDefault().ToYieldInstruction(); // プレイヤーのアクション実行を待ち合わせ 
+                    }
                 }
-                yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction();
+
+                while(!_playerFlag[index])
+                {
+                    yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction();
+                }   
             }
 
-            yield return SyncPhase(Phase.PlayerAction);
-
+            while (!_phaseFlag[Phase.PlayerAction])
+            {
+                yield return SyncPhase(Phase.PlayerAction);
+            }
+            
             _phase.Value = Phase.Putrefy;
 
-            yield return SyncPhase(Phase.Putrefy); // 腐敗トークン処理の待ち合わせ
+            // 腐敗トークン処理の待ち合わせ
+            while (!_phaseFlag[Phase.Putrefy])
+            {
+                yield return SyncPhase(Phase.Putrefy);
+            } 
 
             _phase.Value = Phase.CashOut;
-            yield return null; // indexのsubscribeのために1フレーム待つ。条件変数方式にすべき
-            yield return null;
-        
+
+            for (int i = 0; i < _playerIdx.Count; i++)
+            {
+                _playerFlag[i] = false;
+            }
+
             foreach (var index in _playerIdx)
             {
-                yield return _playerIdxSubject.Where(idx=>index==idx).FirstOrDefault().ToYieldInstruction(); // 売却を待ち合わせ
+
+                // 売却を待ち合わせ
+                while (!_playerFlag[index])
+                {
+                    yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction();
+                }
+
                 if(false)
                 {
                     EndFlag.Value = true;
                 }
             }
-            
-            yield return SyncPhase(Phase.CashOut);
+
+            while (!_phaseFlag[Phase.CashOut])
+            {
+                yield return SyncPhase(Phase.CashOut);
+            }
 
             if (EndFlag.Value)
             {
@@ -156,19 +210,33 @@ public class PhaseManager : MonoBehaviour
             }
 
             _phase.Value = Phase.FoodPreparation;
-            yield return null;
-            yield return null;
+
+            for (int i = 0; i < _playerIdx.Count; i++)
+            {
+                _playerFlag[i] = false;
+            }
 
             foreach (var index in _playerIdx)
             {
-                yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction(); // 仕込みを待ち合わせ
+                // 仕込みを待ち合わせ
+                while (!_playerFlag[index])
+                {
+                    yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction();
+                }
             }
 
-            yield return SyncPhase(Phase.FoodPreparation);
+            while (!_phaseFlag[Phase.FoodPreparation])
+            {
+                yield return SyncPhase(Phase.FoodPreparation);
+            }
 
             _phase.Value = Phase.Aging;
 
-            yield return SyncPhase(Phase.Aging); // 日数経過を待ち合わせ
+            // 日数経過を待ち合わせ
+            while (!_phaseFlag[Phase.Aging])
+            {
+                yield return SyncPhase(Phase.Aging);
+            }
         }
 
         _phase.Value = Phase.Ending;
