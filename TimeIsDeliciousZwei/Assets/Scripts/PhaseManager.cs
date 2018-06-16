@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
+using System;
 
 public class PhaseManager : MonoBehaviour
 {
@@ -18,81 +19,158 @@ public class PhaseManager : MonoBehaviour
     }
 
     // Reactive Property
-    public IReactiveProperty<Phase> CurrentPhase { get; private set; } = new ReactiveProperty<Phase>(Phase.Unknown);
+    private ReactiveProperty<Phase> _phase = new ReactiveProperty<Phase>(Phase.Unknown);
+    public IReactiveProperty<Phase> CurrentPhase
+    {
+        get
+        {
+            return _phase.DelayFrame(1).ToReactiveProperty();
+        }
+    }
+
+    private ReactiveProperty<int> _round = new ReactiveProperty<int>(0);
+    public IReactiveProperty<int> RoundCount
+    {
+        get
+        {
+            return _round.DelayFrame(1).ToReactiveProperty();
+        }
+    }
+
+    private ObservableEnumerable<int> _playerIdx;
+    public IObservable<int> CurrentPlayerIndex
+    {
+        get
+        {
+            return _playerIdx.IterationAsObservable.DelayFrame(1);
+        }
+    }
+
+    private ObservableEnumerable<int> _turn;
+    public IObservable<int> TurnCount
+    {
+        get
+        {
+            return _turn.IterationAsObservable.DelayFrame(1);
+        }
+    }
+
     public IReactiveProperty<bool> EndFlag { get; private set; } = new ReactiveProperty<bool>(false);
 
     // Dependency
     public ITimeIsDeliciousZwei GameMagager { private get; set; }
 
     // Notify
-    private IReactiveProperty<bool> _isReady = new ReactiveProperty<bool>(false);
-    public void NotifyPreparationComplete()
+    private Subject<Phase> _phaseSubject = new Subject<Phase>();
+    public void FinishPhase(Phase phase)
     {
-        _isReady.Value = true;
+        _phaseSubject.OnNext(phase);
+    }
+
+    private Subject<int> _playerIdxSubject = new Subject<int>();
+    public void AdvancePlayer(int index)
+    {
+        _playerIdxSubject.OnNext(index);
+    }
+
+    private Subject<int> _turnSubject = new Subject<int>();
+    public void AdvanceTurn(int turn)
+    {
+        _turnSubject.OnNext(turn);
     }
 
     public void StartGame()
     {
+        var indexList = new List<int>();
+        for(int i=0; i< GameMagager.NumberOfPlayers; i++)
+        {
+            indexList.Add(i);
+        }
+        _playerIdx = new ObservableEnumerable<int>(indexList);
+
+        var turnList = new List<int>();
+        for (int i = 0; i < GameMagager.ActionCount; i++)
+        {
+            turnList.Add(i);
+        }
+        _turn = new ObservableEnumerable<int>(turnList);
+
         Observable.FromCoroutine(PhaseControl).Subscribe().AddTo(gameObject);
+    }
+
+    private ObservableYieldInstruction<Phase> SyncPhase(Phase phase)
+    {
+        return _phaseSubject.Where(ph => ph == phase).FirstOrDefault().ToYieldInstruction();
     }
 
     IEnumerator PhaseControl()
     {
-        Debug.Log("Game Preparation");
+        _round.Value = 0;
 
-        CurrentPhase.Value = Phase.GamePreparation;
+        _phase.Value = Phase.GamePreparation;
 
-        if(!_isReady.Value)
+        yield return SyncPhase(Phase.GamePreparation);
+
+        for(_round.Value = 1; /* forever */ ; _round.Value++)
         {
-            yield return _isReady.Where(_=>true).FirstOrDefault(_ => _).ToYieldInstruction();
-        }
+            _phase.Value = Phase.PlayerAction;
+            yield return null; // indexのsubscribeのために1フレーム待つ。条件変数方式にすべき
+            yield return null;
 
-        Debug.Log("Game Start");
-
-        while(true)
-        {
-            CurrentPhase.Value = Phase.PlayerAction;
-
-            for (int playerIndex=0; playerIndex< GameMagager.NumberOfPlayers; playerIndex++)
+            foreach (var index in _playerIdx)
             {
-                for(int actionIndex=0; actionIndex< GameMagager.ActionCount; actionIndex++)
+                yield return null;
+                yield return null;
+
+                foreach (var cnt in _turn)
                 {
-                    yield return null; // プレイヤーのアクション実行を待ち合わせ
+                    yield return _turnSubject.Where(idx => cnt == idx).FirstOrDefault().ToYieldInstruction(); // プレイヤーのアクション実行を待ち合わせ 
                 }
+                yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction();
             }
 
-            CurrentPhase.Value = Phase.Putrefy;
+            yield return SyncPhase(Phase.PlayerAction);
 
-            yield return null; // 腐敗トークン処理の待ち合わせ
+            _phase.Value = Phase.Putrefy;
 
-            CurrentPhase.Value = Phase.CashOut;
+            yield return SyncPhase(Phase.Putrefy); // 腐敗トークン処理の待ち合わせ
 
-            for (int i = 0; i < GameMagager.NumberOfPlayers; i++)
+            _phase.Value = Phase.CashOut;
+            yield return null; // indexのsubscribeのために1フレーム待つ。条件変数方式にすべき
+            yield return null;
+        
+            foreach (var index in _playerIdx)
             {
-                yield return null; // 売却を待ち合わせ
+                yield return _playerIdxSubject.Where(idx=>index==idx).FirstOrDefault().ToYieldInstruction(); // 売却を待ち合わせ
                 if(false)
                 {
                     EndFlag.Value = true;
                 }
             }
+            
+            yield return SyncPhase(Phase.CashOut);
 
-            if(EndFlag.Value)
+            if (EndFlag.Value)
             {
                 break;
             }
 
-            CurrentPhase.Value = Phase.FoodPreparation;
+            _phase.Value = Phase.FoodPreparation;
+            yield return null;
+            yield return null;
 
-            for (int i = 0; i < GameMagager.NumberOfPlayers; i++)
+            foreach (var index in _playerIdx)
             {
-                yield return null; // 仕込みを待ち合わせ
+                yield return _playerIdxSubject.Where(idx => index == idx).FirstOrDefault().ToYieldInstruction(); // 仕込みを待ち合わせ
             }
 
-            CurrentPhase.Value = Phase.Aging;
+            yield return SyncPhase(Phase.FoodPreparation);
 
-            yield return null; // 日数経過を待ち合わせ
+            _phase.Value = Phase.Aging;
+
+            yield return SyncPhase(Phase.Aging); // 日数経過を待ち合わせ
         }
 
-        CurrentPhase.Value = Phase.Ending;
+        _phase.Value = Phase.Ending;
     }
 }
