@@ -25,6 +25,9 @@ public class MainScenePresenter : MonoBehaviour {
     [SerializeField]
     private PhaseManager _phaseManager;
 
+    [SerializeField]
+    private CardControl _card;
+
     private CompositeDisposable phaseRangedDisposable = new CompositeDisposable();
 
     // Use this for initialization
@@ -77,10 +80,18 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onGamePreparation()
     {
+        _card.OnClickAsObservabale.SelectMany(_ => _card.TestAnimation())
+            .Subscribe(_ =>
+            {
+                Debug.Log("onPreparation End");
+                _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
+            });
+
+
         //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
         //{
-            Debug.Log("onPreparation End");
-            _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
+        //Debug.Log("onPreparation End");
+        //    _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
         //});
     }
 
