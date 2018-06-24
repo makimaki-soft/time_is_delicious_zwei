@@ -10,6 +10,7 @@ public class DummyCard : MonoBehaviour {
 
     public TIDZ.MeatDef.ColorElement MeatColor { get; set; }
     public TIDZ.MeatDef.MeatType     Type { get; set; }
+    public Guid ID { get; set; }
 
     ObservableEventTrigger _eventTrigger;
 
@@ -23,14 +24,27 @@ public class DummyCard : MonoBehaviour {
 		
 	}
 
-    public IObservable<Tuple<DummyCard,Vector3>> OnDragAsObservabale
+    public class CardEventData
+    {
+        public bool OnDrag { get; private set; }
+        public Vector3 MousePosition { get; private set; }
+        public DummyCard Source { get; private set; }
+        public CardEventData(bool onDrag, Vector3 mousePosition, DummyCard source)
+        {
+            OnDrag = onDrag;
+            MousePosition = mousePosition;
+            Source = source;
+        }
+    }
+
+
+    public IObservable<CardEventData> OnDragAsObservabale
     {
         get
         {
-
-            return _eventTrigger.OnMouseDragAsObservable()
-                                .TakeUntil(_eventTrigger.OnEndDragAsObservable())
-                                .Select(_ => Tuple.Create(this, Input.mousePosition));
+            var onDrag = _eventTrigger.OnMouseDragAsObservable().Select(_ => new CardEventData(true, Input.mousePosition, this));
+            var endDrag = _eventTrigger.OnEndDragAsObservable().Select(_ => new CardEventData(false, Input.mousePosition, this));
+            return Observable.Merge(onDrag, endDrag);
         }
     }
 }

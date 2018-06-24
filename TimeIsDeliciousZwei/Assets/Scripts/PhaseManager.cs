@@ -158,7 +158,7 @@ public class PhaseManager : MonoBehaviour
             }
         }
 
-        yield return SyncPhase(Phase.InitialPreparation);
+        // yield return SyncPhase(Phase.InitialPreparation);
 
         for (_round.Value = 1; /* forever */ ; _round.Value++)
         {

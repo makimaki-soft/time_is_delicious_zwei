@@ -24,7 +24,7 @@ public class DummyDeck : MonoBehaviour
     }
 
     // 山札からカードをオープンするアニメーションのダミー関数
-    public IObservable<DummyCard> OpenCard(MeatType type, ColorElement color)
+    public IObservable<DummyCard> OpenCard(MeatType type, ColorElement color, Guid ID)
     {
         // TODO : 呼び出し側でSubscribeしなかった場合にインスタンス化したCardがリークする
         var newCard = Instantiate(_cardPrefab).GetComponent<DummyCard>();
@@ -32,6 +32,7 @@ public class DummyDeck : MonoBehaviour
 
         newCard.MeatColor = color;
         newCard.Type = type;
+        newCard.ID = ID;
 
         return Observable.FromCoroutine(_ => OpenAnimation(newCard)).Select(_ => newCard);
     }

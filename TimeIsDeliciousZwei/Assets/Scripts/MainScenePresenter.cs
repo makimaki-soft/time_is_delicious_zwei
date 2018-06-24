@@ -15,11 +15,17 @@ public class MainScenePresenter : MonoBehaviour {
     [SerializeField]
     private DummyDeck _deckView;
 
-    [SerializeField]
+    
     private List<DummyHand> _handViews;
+
+    private List<List<DummyRipener>> _ripenerVeiws;
 
     [SerializeField]
     private GameObject _handPrefab;
+
+    [SerializeField]
+    private GameObject _ripenerPrefab;
+
 
     private CompositeDisposable phaseRangedDisposable = new CompositeDisposable();
 
@@ -52,6 +58,19 @@ public class MainScenePresenter : MonoBehaviour {
         {
             _handViews.Add(Instantiate(_handPrefab).GetComponent<DummyHand>());
             _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x+i*10, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
+        }
+
+        _ripenerVeiws = new List<List<DummyRipener>>();
+        for (int i = 0; i < _gameMaster.NumberOfPlayers; i++)
+        {
+            var ripener = new List<DummyRipener>();
+            for (int j = 0; j < _gameMaster.NumberOfRipeners; j++)
+            {
+                ripener.Add(Instantiate(_ripenerPrefab).GetComponent<DummyRipener>());
+
+                ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j*17, ripener[j].transform.position.z);
+            }
+            _ripenerVeiws.Add(ripener);
         }
 
         _phaseManager.StartGame();
@@ -132,15 +151,15 @@ public class MainScenePresenter : MonoBehaviour {
             foreach (var player in _players)
             {
                 var card = player.Hand[i];
-                prepareStream = prepareStream.SelectMany(_ => _deckView.OpenCard(card.Type, card.Color))
+                prepareStream = prepareStream.SelectMany(_ => _deckView.OpenCard(card.Type, card.Color, card.ID))
                                              .SelectMany(cardView => _handViews[player.Index].AddHand(cardView));
             }
         }
 
         foreach( var res in _resource.Cards )
         {
-            prepareStream.SelectMany(_ => _deckView.OpenCard(res.Type, res.Color))
-                         .SelectMany(_ => Observable.Return(res.GUID));
+            prepareStream.SelectMany(_ => _deckView.OpenCard(res.Type, res.Color, res.ID))
+                         .SelectMany(_ => Observable.Return(res.ID));
         }
 
         prepareStream.Subscribe(_ =>
@@ -162,29 +181,40 @@ public class MainScenePresenter : MonoBehaviour {
             // 当該プレイヤーの手札のドラッグを有効化
             // (手札の中から最初にドラッグ開始されたもののドラッグイベントのみを通す(Amb)
 
-            DummyCard card;
-            Vector3 position;
+         
             Observable.Amb(_handViews[index].CurrentCard.Select(_=>_.OnDragAsObservabale))
                       .Subscribe(e =>
                       {
                           // もしposが熟成器UIの近くだったら、強調させる
-                         
-                          card = e.Item1;
-                          position = e.Item2;
-                          position.z = card.transform.position.z - Camera.main.transform.position.z;
-                          card.transform.position = Camera.main.ScreenToWorldPoint(position);
-                      },
-                      ()=>
-                      {
-                          // ドラッグ終了時に熟成器UIの近くにいたら、その熟成期に肉を入れる
-                          Debug.Log("(仮)熟成器にカードを入れるアニメーションを開始（１秒）");
-                          Observable.Timer(TimeSpan.FromSeconds(1)).Subscribe(_ =>
+                          var card = e.Source;
+                          var position = e.MousePosition;
+                          var onDrag = e.OnDrag;
+                          if(onDrag)
                           {
-                              Debug.Log("アニメーション終了");
-                              var agingCard = _players[index].Hand[0]; // 実際はDummyCardに紐づくModelを選択
-                              _players[index].Hand.Remove(agingCard);
-                              _players[index].Ripeners[0].AddCard(agingCard);
-                          });
+                              position.z = card.transform.position.z - Camera.main.transform.position.z;
+                              card.transform.position = Camera.main.ScreenToWorldPoint(position);
+                          }
+                          else
+                          {
+                              // ドラッグ終了時に熟成器UIの近くにいたら、その熟成期に肉を入れる
+                              var myripener = _ripenerVeiws[index];
+                              foreach (var r in myripener)
+                              {
+                                  if (_players[index].Ripeners[myripener.IndexOf(r)].Empty.Value && Vector3.Distance(r.transform.position, card.transform.position) < 100)
+                                  {
+                                      Debug.Log("(仮)熟成器にカードを入れるアニメーションを開始");
+                                      _handViews[index].RemoveHand(card).SelectMany(_ => r.AddCard(card)).Subscribe(_ =>
+                                      {
+                                          Debug.Log("アニメーション終了");
+                                          var agingCard = _players[index].Hand.First(m => m.ID == card.ID);
+                                          _players[index].Hand.Remove(agingCard);
+                                          
+                                          _players[index].Ripeners[myripener.IndexOf(r)].AddCard(agingCard);
+                                      });
+                                      break;
+                                  }
+                              }
+                          }
                       }).AddTo(disposable);
 
         }).AddTo(phaseRangedDisposable);

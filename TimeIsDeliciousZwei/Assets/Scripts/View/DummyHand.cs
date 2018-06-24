@@ -53,6 +53,26 @@ public class DummyHand : MonoBehaviour {
         card.transform.position = targetpos;
     }
 
+    public IObservable<Unit> RemoveHand(DummyCard card)
+    {
+        if(_cards.Contains(card))
+        {
+            _cards.Remove(card);
+            return Observable.FromCoroutine(_ => RemoveHandAnimation(card));
+        }
+
+        return Observable.Never(Unit.Default);
+    }
+
+    IEnumerator RemoveHandAnimation(DummyCard card)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            card.transform.position = new Vector3(card.transform.position.x, card.transform.position.y, card.transform.position.z - 0.5f);
+            yield return null;
+        }
+    }
+
     public IObservable<Vector3> OnDragAsObservabale
     {
         get
