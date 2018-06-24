@@ -60,6 +60,9 @@ public class MainScenePresenter : MonoBehaviour {
             case PhaseManager.Phase.GamePreparation:
                 onGamePreparation();
                 break;
+            case PhaseManager.Phase.InitialPreparation:
+                onInitialPreparation();
+                break;
             case PhaseManager.Phase.PlayerAction:
                 onPlayerAction();
                 break;
@@ -86,6 +89,7 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onGamePreparation()
     {
+#if false
         // 山札→各プレイヤーの手札へのアニメーション処理
         var oneByOneNext = new Subject<Unit>();
 
@@ -109,10 +113,39 @@ public class MainScenePresenter : MonoBehaviour {
                                 .Subscribe(_ => oneByOneCommon.OnNext(Unit.Default))
                                 .AddTo(phaseRangedDisposable);
 
+
+#endif
         _gameMaster.Prepare();
 
+        var prepareStream = Observable.Return<Unit>(Unit.Default);
 
-        // _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
+        for(int i=0; i<_gameMaster.InitialHand; i++)
+        {
+            foreach (var player in _players)
+            {
+                var card = player.Hand[i];
+                prepareStream = prepareStream.SelectMany(_ => _deckView.OpenCard(card.Type, card.Color))
+                                             .SelectMany(_ => _handView.AddHand(player.Index));
+            }
+        }
+
+        foreach( var res in _resource.Cards )
+        {
+            prepareStream.SelectMany(_ => _deckView.OpenCard(res.Type, res.Color))
+                         .SelectMany(_ => Observable.Return(res.GUID));
+        }
+
+        prepareStream.Subscribe(_ =>
+        {
+            _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
+        }).AddTo(phaseRangedDisposable);
+    }
+
+    void onInitialPreparation()
+    {
+
+
+
     }
 
     void onPlayerAction()

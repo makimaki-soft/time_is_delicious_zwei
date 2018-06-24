@@ -9,6 +9,7 @@ public class PhaseManager : MonoBehaviour
     public enum Phase
     {
         GamePreparation,    // ゲームの準備中
+        InitialPreparation, // 最初の仕込みフェイズ
         PlayerAction,       // アクションフェイズ
         Putrefy,            // 腐敗フェイズ
         CashOut,            // 売却フェイズ
@@ -126,8 +127,18 @@ public class PhaseManager : MonoBehaviour
         _phase.Value = Phase.GamePreparation;
 
         yield return SyncPhase(Phase.GamePreparation);
-        
-        for(_round.Value = 1; /* forever */ ; _round.Value++)
+
+        _playerFlag.Clear();
+        foreach (var index in _playerIdx)
+        {
+            yield return SyncPlayer(index);
+        }
+
+        _phase.Value = Phase.InitialPreparation;
+
+        yield return SyncPhase(Phase.InitialPreparation);
+
+        for (_round.Value = 1; /* forever */ ; _round.Value++)
         {
             _phaseFlag.Clear();
 

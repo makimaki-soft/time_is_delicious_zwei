@@ -19,7 +19,7 @@ public class DummyHand : MonoBehaviour {
     // 手札にカードを追加するアニメーションのダミー関数
     public IObservable<Unit> AddHand(int playerIndex)
     {
-        var coroutine = Observable.Timer(TimeSpan.FromSeconds(2)).Do(_=>Debug.Log("AddaHandes")).Select(_ => Unit.Default);
+        var coroutine = Observable.Timer(TimeSpan.FromSeconds(1)).Do(_=> Debug.Log("Opened : " + playerIndex.ToString())).Select(_ => Unit.Default).Publish().RefCount();
         coroutine.Subscribe();
         return coroutine;
     }
