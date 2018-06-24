@@ -5,28 +5,43 @@ using UniRx;
 using System;
 using static TIDZ.MeatDef;
 
-public class DummyDeck : MonoBehaviour {
+public class DummyDeck : MonoBehaviour
+{
 
-	// Use this for initialization
-	void Start () {
-		
-	}
-	
-	// Update is called once per frame
-	void Update () {
-		
-	}
+    [SerializeField]
+    private GameObject _cardPrefab;
 
-    // 山札からカードをオープンするアニメーションのダミー関数
-    public IObservable<Unit> OpenCard(MeatType type, ColorElement color)
+    // Use this for initialization
+    void Start()
     {
-        return OpenCard(type, color, default(Unit));
+
     }
 
-    public IObservable<T> OpenCard<T>(MeatType type, ColorElement color, T bypass)
+    // Update is called once per frame
+    void Update()
     {
-        var coroutine = Observable.Timer(TimeSpan.FromMilliseconds(200)).Do(_=>Debug.Log("Opened : " + type.ToString() + " " + color.ToString())).Select(_ => bypass).Publish().RefCount();
-        coroutine.Subscribe();
-        return coroutine;
+
+    }
+
+    // 山札からカードをオープンするアニメーションのダミー関数
+    public IObservable<DummyCard> OpenCard(MeatType type, ColorElement color)
+    {
+        // TODO : 呼び出し側でSubscribeしなかった場合にインスタンス化したCardがリークする
+        var newCard = Instantiate(_cardPrefab).GetComponent<DummyCard>();
+        newCard.transform.position = transform.position;
+
+        newCard.MeatColor = color;
+        newCard.Type = type;
+
+        return Observable.FromCoroutine(_ => OpenAnimation(newCard)).Select(_ => newCard);
+    }
+
+    IEnumerator OpenAnimation(DummyCard card)
+    {
+        for(int i=0; i<20; i++)
+        {
+            card.transform.position = new Vector3(card.transform.position.x, card.transform.position.y, card.transform.position.z - 0.5f);
+            yield return null;
+        }
     }
 }

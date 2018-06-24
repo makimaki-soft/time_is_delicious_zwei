@@ -51,6 +51,7 @@ public class MainScenePresenter : MonoBehaviour {
         for (int i=0; i< _gameMaster.NumberOfPlayers; i++)
         {
             _handViews.Add(Instantiate(_handPrefab).GetComponent<DummyHand>());
+            _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x+i*10, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
         }
 
         _phaseManager.StartGame();
@@ -132,7 +133,7 @@ public class MainScenePresenter : MonoBehaviour {
             {
                 var card = player.Hand[i];
                 prepareStream = prepareStream.SelectMany(_ => _deckView.OpenCard(card.Type, card.Color))
-                                             .SelectMany(_ => _handViews[player.Index].AddHand(player.Index));
+                                             .SelectMany(cardView => _handViews[player.Index].AddHand(cardView));
             }
         }
 
@@ -164,7 +165,6 @@ public class MainScenePresenter : MonoBehaviour {
             DummyCard card;
             Vector3 position;
             Observable.Amb(_handViews[index].CurrentCard.Select(_=>_.OnDragAsObservabale))
-                      // .Repeat()
                       .Subscribe(e =>
                       {
                           // もしposが熟成器UIの近くだったら、強調させる

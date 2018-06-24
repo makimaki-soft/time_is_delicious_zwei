@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+
 using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
 
 public class DummyCard : MonoBehaviour {
 
-    
+    public TIDZ.MeatDef.ColorElement MeatColor { get; set; }
+    public TIDZ.MeatDef.MeatType     Type { get; set; }
 
     ObservableEventTrigger _eventTrigger;
     // Use this for initialization

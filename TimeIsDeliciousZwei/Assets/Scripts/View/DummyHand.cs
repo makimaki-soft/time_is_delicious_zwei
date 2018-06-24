@@ -16,11 +16,11 @@ public class DummyHand : MonoBehaviour {
     void Start () {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
 
-        _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
+        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
+        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
+        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
+        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
+        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
     }
 	
 	// Update is called once per frame
@@ -36,11 +36,27 @@ public class DummyHand : MonoBehaviour {
     }
 
     // 手札にカードを追加するアニメーションのダミー関数
-    public IObservable<Unit> AddHand(int playerIndex)
+    public IObservable<Unit> AddHand(DummyCard card)
     {
-        var coroutine = Observable.Timer(TimeSpan.FromMilliseconds(200)).Do(_=> Debug.Log("Opened : " + playerIndex.ToString())).Select(_ => Unit.Default).Publish().RefCount();
-        coroutine.Subscribe();
-        return coroutine;
+        _cards.Add(card);
+        return Observable.FromCoroutine(_ => AddHandAnimation(card));
+    }
+
+    IEnumerator AddHandAnimation(DummyCard card)
+    {
+        var targetpos = transform.position;
+        targetpos.x += _cards.Count * 1.5f;
+        var srcpos = card.transform.position;
+
+        var d = new Vector3((targetpos.x - srcpos.x) / 20f, (targetpos.y - srcpos.y) / 20f, (targetpos.z - srcpos.z) / 20f);
+
+        for (int i = 0; i < 20; i++)
+        {
+            card.transform.Translate(d);
+            yield return null;
+        }
+
+        card.transform.position = targetpos;
     }
 
     public IObservable<Vector3> OnDragAsObservabale
