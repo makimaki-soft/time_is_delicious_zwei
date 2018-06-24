@@ -7,9 +7,6 @@ using System;
 using TIDZ;
 using System.Linq;
 
-
-
-
 public class MainScenePresenter : MonoBehaviour {
 
     [SerializeField]
@@ -19,7 +16,10 @@ public class MainScenePresenter : MonoBehaviour {
     private DummyDeck _deckView;
 
     [SerializeField]
-    private DummyHand _handView;
+    private List<DummyHand> _handViews;
+
+    [SerializeField]
+    private GameObject _handPrefab;
 
     private CompositeDisposable phaseRangedDisposable = new CompositeDisposable();
 
@@ -45,6 +45,13 @@ public class MainScenePresenter : MonoBehaviour {
         _resource = _gameMaster.CommonResources;
 
         _phaseManager.GameMagager = _gameMaster;
+
+        // View生成
+        _handViews = new List<DummyHand>(_gameMaster.NumberOfPlayers);
+        for (int i=0; i< _gameMaster.NumberOfPlayers; i++)
+        {
+            _handViews.Add(Instantiate(_handPrefab).GetComponent<DummyHand>());
+        }
 
         _phaseManager.StartGame();
     }
@@ -125,7 +132,7 @@ public class MainScenePresenter : MonoBehaviour {
             {
                 var card = player.Hand[i];
                 prepareStream = prepareStream.SelectMany(_ => _deckView.OpenCard(card.Type, card.Color))
-                                             .SelectMany(_ => _handView.AddHand(player.Index));
+                                             .SelectMany(_ => _handViews[player.Index].AddHand(player.Index));
             }
         }
 
@@ -143,9 +150,41 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onInitialPreparation()
     {
+        var disposable = new CompositeDisposable();
 
+        _phaseManager.CurrentPlayerIndex_.Subscribe(index =>
+        {
+            Debug.Log("Player " + index.ToString());
 
+            disposable.Clear();
 
+            // 当該プレイヤーの手札のドラッグを有効化
+            // (手札の中から最初にドラッグ開始されたもののドラッグイベントのみを通す(Amb)
+
+            DummyCard card;
+            Vector3 position;
+            Observable.Amb(_handViews[index].CurrentCard.Select(_=>_.OnDragAsObservabale))
+                      // .Repeat()
+                      .Subscribe(e =>
+                      {
+                          // もしposが熟成器UIの近くだったら、強調させる
+                          card = e.Item1;
+                          position = e.Item2;
+                      },
+                      ()=>
+                      {
+                          // ドラッグ終了時に熟成器UIの近くにいたら、その熟成期に肉を入れる
+                          Debug.Log("(仮)熟成器にカードを入れるアニメーションを開始（１秒）");
+                          Observable.Timer(TimeSpan.FromSeconds(1)).Subscribe(_ =>
+                          {
+                              Debug.Log("アニメーション終了");
+                              var agingCard = _players[index].Hand[0]; // 実際はDummyCardに紐づくModelを選択
+                              _players[index].Hand.Remove(agingCard);
+                              _players[index].Ripeners[0].AddCard(agingCard);
+                          });
+                      }).AddTo(disposable);
+
+        }).AddTo(phaseRangedDisposable);
     }
 
     void onPlayerAction()

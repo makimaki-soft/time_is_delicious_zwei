@@ -28,6 +28,11 @@ namespace TIDZ
             get { return 4; }
         }
 
+        public int NumberOfRipeners
+        {
+            get { return 2; }
+        }
+
         private Deck<MeatCard> _playingDeck;
         public Deck<MeatCard> PlayingDeck
         {

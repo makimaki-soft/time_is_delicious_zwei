@@ -25,7 +25,7 @@ public class DummyDeck : MonoBehaviour {
 
     public IObservable<T> OpenCard<T>(MeatType type, ColorElement color, T bypass)
     {
-        var coroutine = Observable.Timer(TimeSpan.FromSeconds(1)).Do(_=>Debug.Log("Opened : " + type.ToString() + " " + color.ToString())).Select(_ => bypass).Publish().RefCount();
+        var coroutine = Observable.Timer(TimeSpan.FromMilliseconds(200)).Do(_=>Debug.Log("Opened : " + type.ToString() + " " + color.ToString())).Select(_ => bypass).Publish().RefCount();
         coroutine.Subscribe();
         return coroutine;
     }

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
 using System;
+using System.Linq;
+using TIDZ;
 
 public class PhaseManager : MonoBehaviour
 {
@@ -38,13 +40,20 @@ public class PhaseManager : MonoBehaviour
         }
     }
 
-    private ObservableEnumerable<int> _playerIdx;
-    public IObservable<int> CurrentPlayerIndex
+    private ReactiveProperty<int> _currPlayer = new ReactiveProperty<int>(0);
+    private ObservableEnumerable<int> _playerIdx; // これは消す方向で。
+    public IReactiveProperty<int> CurrentPlayerIndex
     {
         get
         {
-            return _playerIdx.IterationAsObservable;
+            return _currPlayer;
         }
+    }
+
+    private Subject<int> _currPlayerSubject = new Subject<int>();
+    public IObservable<int> CurrentPlayerIndex_
+    {
+        get { return _currPlayerSubject; }
     }
 
     private ObservableEnumerable<int> _turn;
@@ -59,7 +68,7 @@ public class PhaseManager : MonoBehaviour
     public IReactiveProperty<bool> EndFlag { get; private set; } = new ReactiveProperty<bool>(false);
 
     // Dependency
-    public ITimeIsDeliciousZwei GameMagager { private get; set; }
+    public GameMaster GameMagager { private get; set; }
 
     public void StartGame()
     {
@@ -128,13 +137,26 @@ public class PhaseManager : MonoBehaviour
 
         yield return SyncPhase(Phase.GamePreparation);
 
-        _playerFlag.Clear();
-        foreach (var index in _playerIdx)
-        {
-            yield return SyncPlayer(index);
-        }
-
+        /* 初期仕込みフェイズ */
         _phase.Value = Phase.InitialPreparation;
+
+        for (int i = 0; i < GameMagager.NumberOfRipeners; i++)
+        {
+            for (int idx = 0; idx < GameMagager.NumberOfPlayers; idx++)
+            {
+                Debug.Log("Player Change " + idx);
+                _currPlayer.Value = idx;
+                _currPlayerSubject.OnNext(idx);
+
+                // プレイヤー持つ熟成器からのEmptyプロパティの変更通知をうけたら、
+                // 他の熟成器も含めてEmptyでない熟成器の数を調べ、それが最初は1,次は2だったら次のプレイヤーへ。
+                yield return Observable.Merge(GameMagager.Players[idx].Ripeners.Select(r => r.Empty))
+                                       .Select(_ => GameMagager.Players[idx].Ripeners.Select(r => r.Empty.Value).Where(b => !b).Count())
+                                       .Where(notEmptyNum => notEmptyNum == i+1)
+                                       .First()
+                                       .ToYieldInstruction();
+            }
+        }
 
         yield return SyncPhase(Phase.InitialPreparation);
 
