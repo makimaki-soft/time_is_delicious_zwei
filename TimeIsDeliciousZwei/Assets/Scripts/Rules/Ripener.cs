@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using static TIDZ.MeatDef;
 
 namespace TIDZ
 {
@@ -21,10 +22,10 @@ namespace TIDZ
         public int Maturity { get; private set; }
 
         // 熟成中の肉の種類
-        public MeatCard.MeatType AgingType { get; private set; }
+        public MeatType AgingType { get; private set; }
 
         // 熟成器の属性リスト
-        public HashSet<MeatCard.ColorElement> Colors { get; private set; }
+        public HashSet<ColorElement> Colors { get; private set; }
 
         // 熟成期間
         public int AgingPeriod { get; private set; }

@@ -4,21 +4,11 @@ using UnityEngine;
 using UniRx;
 using System;
 
-class Dummy : ITimeIsDeliciousZwei
-{
-    public int NumberOfPlayers
-    {
-        get { return 4; }
-    }
-    public int ActionCount
-    {
-        get { return 2; }
-    }
-    public int RotTokenPreRound
-    {
-        get { return 5; }
-    }
-}
+using TIDZ;
+using System.Linq;
+
+
+
 
 public class MainScenePresenter : MonoBehaviour {
 
@@ -26,9 +16,19 @@ public class MainScenePresenter : MonoBehaviour {
     private PhaseManager _phaseManager;
 
     [SerializeField]
-    private CardControl _card;
+    private DummyDeck _deckView;
+
+    [SerializeField]
+    private DummyHand _handView;
 
     private CompositeDisposable phaseRangedDisposable = new CompositeDisposable();
+
+
+    /* Game Componets */
+    private GameMaster _gameMaster;
+    private Deck<MeatCard> _playingDeck;
+    private List<Player> _players;
+    private CommonResource _resource;
 
     // Use this for initialization
     void Start () {
@@ -37,7 +37,14 @@ public class MainScenePresenter : MonoBehaviour {
             .Subscribe(phase => onPhaseChanged(phase))
             .AddTo(gameObject);
 
-        _phaseManager.GameMagager = new Dummy();
+        _gameMaster = new GameMaster();
+        _gameMaster.NumberOfPlayers = 4;
+        _gameMaster.Initialize();
+        _playingDeck = _gameMaster.PlayingDeck;
+        _players = _gameMaster.Players;
+        _resource = _gameMaster.CommonResources;
+
+        _phaseManager.GameMagager = _gameMaster;
 
         _phaseManager.StartGame();
     }
@@ -47,7 +54,6 @@ public class MainScenePresenter : MonoBehaviour {
         Debug.Log("OnPhase : " + phase.ToString());
 
         phaseRangedDisposable.Clear();
-
 
         switch (phase)
         {
@@ -80,19 +86,33 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onGamePreparation()
     {
-        _card.OnClickAsObservabale.SelectMany(_ => _card.TestAnimation())
-            .Subscribe(_ =>
-            {
-                Debug.Log("onPreparation End");
-                _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
-            });
+        // 山札→各プレイヤーの手札へのアニメーション処理
+        var oneByOneNext = new Subject<Unit>();
+
+        /* 各プレイヤーの手札増加イベントと直前の山札オープンイベントを結合して<Player, AddEvent>のタプルに変換するLinq */
+        var cardDistribute = _players.Select(player => player.Hand.ObserveAdd()
+                                                                  .Select(addEvent => Tuple.Create(player, addEvent))
+                                                                  .ZipLatest(_playingDeck.ObserveOpen, (tuple, addEvent) => tuple));
+        Observable.Merge(cardDistribute)
+                  .OneByOne(oneByOneNext)
+                  .SelectMany(t => _deckView.OpenCard(t.Item2.Value.Type, t.Item2.Value.Color, t))
+                  .SelectMany(t => _handView.AddHand(t.Item1.Index))
+                  .Subscribe(_=> oneByOneNext.OnNext(Unit.Default))
+                  .AddTo(phaseRangedDisposable);
 
 
-        //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        //{
-        //Debug.Log("onPreparation End");
-        //    _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
-        //});
+        var oneByOneCommon = new Subject<Unit>();
+        _playingDeck.ObserveOpen.ZipLatest(_resource.Cards.ObserveAdd(), (a, b) => a)
+                                .OneByOne(oneByOneCommon)
+                                .SelectMany(e => _deckView.OpenCard(e.Value.Type, e.Value.Color, e))
+                                .SelectMany(e => Observable.Return(e.Value)) // 共通リソースに肉を配置するアニメーションに変更する
+                                .Subscribe(_ => oneByOneCommon.OnNext(Unit.Default))
+                                .AddTo(phaseRangedDisposable);
+
+        _gameMaster.Prepare();
+
+
+        // _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
     }
 
     void onPlayerAction()
