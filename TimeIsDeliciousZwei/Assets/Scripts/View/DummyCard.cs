@@ -12,6 +12,7 @@ public class DummyCard : MonoBehaviour {
     public TIDZ.MeatDef.MeatType     Type { get; set; }
 
     ObservableEventTrigger _eventTrigger;
+
     // Use this for initialization
     void Start () {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
@@ -26,13 +27,10 @@ public class DummyCard : MonoBehaviour {
     {
         get
         {
-            //return _eventTrigger.OnMouseDragAsObservable()
-            //    .Select(_ => Tuple.Create(this, Input.mousePosition));
-            return Observable.Range(0,10).Select(_=>
-            {
-                var ret = Tuple.Create(this, Input.mousePosition);
-                return ret;
-            });
+
+            return _eventTrigger.OnMouseDragAsObservable()
+                                .TakeUntil(_eventTrigger.OnEndDragAsObservable())
+                                .Select(_ => Tuple.Create(this, Input.mousePosition));
         }
     }
 }

@@ -15,12 +15,6 @@ public class DummyHand : MonoBehaviour {
     // Use this for initialization
     void Start () {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
-
-        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
-        // _cards.Add(Instantiate(_cardPrefab).GetComponent<DummyCard>());
     }
 	
 	// Update is called once per frame
@@ -63,7 +57,7 @@ public class DummyHand : MonoBehaviour {
     {
         get
         {
-            return _eventTrigger.OnMouseDragAsObservable().Select(_=>Input.mousePosition);
+            return _eventTrigger.OnMouseDragAsObservable().TakeWhile(_ => Input.GetMouseButtonDown(0)).Select(_=>Input.mousePosition);
         }
     }
 }

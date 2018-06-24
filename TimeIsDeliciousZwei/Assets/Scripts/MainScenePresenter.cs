@@ -168,8 +168,11 @@ public class MainScenePresenter : MonoBehaviour {
                       .Subscribe(e =>
                       {
                           // もしposが熟成器UIの近くだったら、強調させる
+                         
                           card = e.Item1;
                           position = e.Item2;
+                          position.z = card.transform.position.z - Camera.main.transform.position.z;
+                          card.transform.position = Camera.main.ScreenToWorldPoint(position);
                       },
                       ()=>
                       {
