@@ -51,7 +51,15 @@ namespace TIDZ
         public HashSet<ColorElement> Colors { get; private set; }
 
         // 熟成期間
-        public int AgingPeriod { get; private set; }
+        private ReactiveProperty<int> _agingPeriod = new ReactiveProperty<int>(0);
+        public IReactiveProperty<int> AgingPeriod
+        {
+            get { return _agingPeriod; }
+        }
+        public void AddDay()
+        {
+            _agingPeriod.Value++;
+        }
     }
 }
 

@@ -7,14 +7,10 @@ using System;
 using TIDZ;
 using System.Linq;
 
-public class MainScenePresenter : MonoBehaviour {
-
-    [SerializeField]
-    private PhaseManager _phaseManager;
-
+public class MainScenePresenter : MonoBehaviour
+{
     [SerializeField]
     private DummyDeck _deckView;
-
     
     private List<DummyHand> _handViews;
 
@@ -26,284 +22,135 @@ public class MainScenePresenter : MonoBehaviour {
     [SerializeField]
     private GameObject _ripenerPrefab;
 
+    private GameObject _commonRes;
 
-    private CompositeDisposable phaseRangedDisposable = new CompositeDisposable();
-
-
-    /* Game Componets */
-    private GameMaster _gameMaster;
-    private Deck<MeatCard> _playingDeck;
-    private List<Player> _players;
-    private CommonResource _resource;
+    // ModelとViewの対応関係(GameObjectが削除されるときにDictionaryからも削除しないとリークする気がする）
+    Dictionary<MeatCard, DummyCard> _vmCard = new Dictionary<MeatCard, DummyCard>();
 
     // Use this for initialization
     void Start () {
 
-        _phaseManager.CurrentPhase
-            .Subscribe(phase => onPhaseChanged(phase))
-            .AddTo(gameObject);
-
-        _gameMaster = new GameMaster();
-        _gameMaster.NumberOfPlayers = 4;
-        _gameMaster.Initialize();
-        _playingDeck = _gameMaster.PlayingDeck;
-        _players = _gameMaster.Players;
-        _resource = _gameMaster.CommonResources;
-
-        _phaseManager.GameMagager = _gameMaster;
+        int playerNum = 4;
+        int NumberOfRipeners = 2;
 
         // View生成
-        _handViews = new List<DummyHand>(_gameMaster.NumberOfPlayers);
-        for (int i=0; i< _gameMaster.NumberOfPlayers; i++)
+        _commonRes = GameObject.Find("ComRes");
+
+        _handViews = new List<DummyHand>(playerNum);
+        for (int i = 0; i < playerNum; i++)
         {
             _handViews.Add(Instantiate(_handPrefab).GetComponent<DummyHand>());
-            _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x+i*10, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
+            _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x + i * 10, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
         }
 
         _ripenerVeiws = new List<List<DummyRipener>>();
-        for (int i = 0; i < _gameMaster.NumberOfPlayers; i++)
+        for (int i = 0; i < playerNum; i++)
         {
             var ripener = new List<DummyRipener>();
-            for (int j = 0; j < _gameMaster.NumberOfRipeners; j++)
+            for (int j = 0; j < NumberOfRipeners; j++)
             {
                 ripener.Add(Instantiate(_ripenerPrefab).GetComponent<DummyRipener>());
 
-                ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j*17, ripener[j].transform.position.z);
+                ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j * 17, ripener[j].transform.position.z);
             }
             _ripenerVeiws.Add(ripener);
         }
-
-        _phaseManager.StartGame();
     }
 
-    void onPhaseChanged(PhaseManager.Phase phase)
+    public IObservable<Unit> OpenCard(MeatCard card)
     {
-        Debug.Log("OnPhase : " + phase.ToString());
-
-        phaseRangedDisposable.Clear();
-
-        switch (phase)
-        {
-            case PhaseManager.Phase.GamePreparation:
-                onGamePreparation();
-                break;
-            case PhaseManager.Phase.InitialPreparation:
-                onInitialPreparation();
-                break;
-            case PhaseManager.Phase.PlayerAction:
-                onPlayerAction();
-                break;
-            case PhaseManager.Phase.Putrefy:
-                onPutrefy();
-                break;
-            case PhaseManager.Phase.CashOut:
-                onCashOut();
-                break;
-            case PhaseManager.Phase.FoodPreparation:
-                onFoodPreparation();
-                break;
-            case PhaseManager.Phase.Aging:
-                onAging();
-                break;
-            case PhaseManager.Phase.Ending:
-                onEnding();
-                break;
-            default:
-                Debug.Log("Unknown Phase");
-                break;
-        }
+        return _deckView.OpenCard(card.Type, card.Color, card.ID)
+                        .Do(cardView => _vmCard[card] = cardView)
+                        .AsUnitObservable();
     }
 
-    void onGamePreparation()
+    public IObservable<Unit> AddHand(int playerIdx, MeatCard card)
     {
-#if false
-        // 山札→各プレイヤーの手札へのアニメーション処理
-        var oneByOneNext = new Subject<Unit>();
+        return _handViews[playerIdx].AddHand(_vmCard[card]);
+    }
 
-        /* 各プレイヤーの手札増加イベントと直前の山札オープンイベントを結合して<Player, AddEvent>のタプルに変換するLinq */
-        var cardDistribute = _players.Select(player => player.Hand.ObserveAdd()
-                                                                  .Select(addEvent => Tuple.Create(player, addEvent))
-                                                                  .ZipLatest(_playingDeck.ObserveOpen, (tuple, addEvent) => tuple));
-        Observable.Merge(cardDistribute)
-                  .OneByOne(oneByOneNext)
-                  .SelectMany(t => _deckView.OpenCard(t.Item2.Value.Type, t.Item2.Value.Color, t))
-                  .SelectMany(t => _handView.AddHand(t.Item1.Index))
-                  .Subscribe(_=> oneByOneNext.OnNext(Unit.Default))
-                  .AddTo(phaseRangedDisposable);
+    public IObservable<Unit> RemoveHand(int playerIdx, MeatCard card)
+    {
+        return _handViews[playerIdx].RemoveHand(_vmCard[card]);
+    }
 
+    public IObservable<Unit> MoveHandToRipener(Player player, int ripenerIndex, MeatCard card)
+    {
+        var index = player.Index;
+        var r = _ripenerVeiws[index][ripenerIndex];
 
-        var oneByOneCommon = new Subject<Unit>();
-        _playingDeck.ObserveOpen.ZipLatest(_resource.Cards.ObserveAdd(), (a, b) => a)
-                                .OneByOne(oneByOneCommon)
-                                .SelectMany(e => _deckView.OpenCard(e.Value.Type, e.Value.Color, e))
-                                .SelectMany(e => Observable.Return(e.Value)) // 共通リソースに肉を配置するアニメーションに変更する
-                                .Subscribe(_ => oneByOneCommon.OnNext(Unit.Default))
-                                .AddTo(phaseRangedDisposable);
+        return _handViews[index].RemoveHand(_vmCard[card]).SelectMany(_ => r.AddCard(_vmCard[card]));
+    }
 
+    public IObservable<Unit> AddCommonResource(MeatCard card)
+    {
+        var view = _vmCard[card];
+        view.transform.position = _commonRes.transform.position;
+        return Observable.Return(Unit.Default);
+    }
 
-#endif
-        _gameMaster.Prepare();
+    public IObservable<Tuple<MeatCard, Ripener>> Preparation(Player player)
+    {
+        // 手札カードのドラッグを有効にする
+        // 最初に触ったカードをドラッグ状態にする
+        // そのカードが、そのプレイヤーの熟成器の近くだったら、熟成器を強調する
+        // 手を離してドラッグが終わったとき、有効な熟成器の近くだったら、その熟成器とカードの情報をonNextする
+        // なにもなかったら、カードを最初の位置に戻して、nullをonNextする
+        var playerIdx = player.Index;
+        var ripenersModel = player.Ripeners;
+        var ripenersView = _ripenerVeiws[playerIdx];
 
-        var prepareStream = Observable.Return<Unit>(Unit.Default);
+        bool validChoise = false;
+        DummyCard cardChoise = null;
 
-        for(int i=0; i<_gameMaster.InitialHand; i++)
-        {
-            foreach (var player in _players)
+        Vector3 initialPosition = new Vector3(0, 0, 0);
+        bool first = true;
+
+        return Observable.Amb(_handViews[playerIdx].CurrentCard.Select(_ => _.OnDragAsObservabale))
+            .Do(e =>
             {
-                var card = player.Hand[i];
-                prepareStream = prepareStream.SelectMany(_ => _deckView.OpenCard(card.Type, card.Color, card.ID))
-                                             .SelectMany(cardView => _handViews[player.Index].AddHand(cardView));
-            }
-        }
-
-        foreach( var res in _resource.Cards )
-        {
-            prepareStream.SelectMany(_ => _deckView.OpenCard(res.Type, res.Color, res.ID))
-                         .SelectMany(_ => Observable.Return(res.ID));
-        }
-
-        prepareStream.Subscribe(_ =>
-        {
-            _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
-        }).AddTo(phaseRangedDisposable);
-    }
-
-    void onInitialPreparation()
-    {
-        var disposable = new CompositeDisposable();
-
-        _phaseManager.CurrentPlayerIndex_.Subscribe(index =>
-        {
-            Debug.Log("Player " + index.ToString());
-
-            disposable.Clear();
-
-            // 当該プレイヤーの手札のドラッグを有効化
-            // (手札の中から最初にドラッグ開始されたもののドラッグイベントのみを通す(Amb)
-
-         
-            Observable.Amb(_handViews[index].CurrentCard.Select(_=>_.OnDragAsObservabale))
-                      .Subscribe(e =>
-                      {
-                          // もしposが熟成器UIの近くだったら、強調させる
-                          var card = e.Source;
-                          var position = e.MousePosition;
-                          var onDrag = e.OnDrag;
-                          if(onDrag)
-                          {
-                              position.z = card.transform.position.z - Camera.main.transform.position.z;
-                              card.transform.position = Camera.main.ScreenToWorldPoint(position);
-                          }
-                          else
-                          {
-                              // ドラッグ終了時に熟成器UIの近くにいたら、その熟成期に肉を入れる
-                              var myripener = _ripenerVeiws[index];
-                              foreach (var r in myripener)
-                              {
-                                  if (_players[index].Ripeners[myripener.IndexOf(r)].Empty.Value && Vector3.Distance(r.transform.position, card.transform.position) < 100)
-                                  {
-                                      Debug.Log("(仮)熟成器にカードを入れるアニメーションを開始");
-                                      _handViews[index].RemoveHand(card).SelectMany(_ => r.AddCard(card)).Subscribe(_ =>
-                                      {
-                                          Debug.Log("アニメーション終了");
-                                          var agingCard = _players[index].Hand.First(m => m.ID == card.ID);
-                                          _players[index].Hand.Remove(agingCard);
-                                          
-                                          _players[index].Ripeners[myripener.IndexOf(r)].AddCard(agingCard);
-                                      });
-                                      break;
-                                  }
-                              }
-                          }
-                      }).AddTo(disposable);
-
-        }).AddTo(phaseRangedDisposable);
-    }
-
-    void onPlayerAction()
-    {
-        _phaseManager.CurrentPlayerIndex.Subscribe(index =>
-        {
-            // PlayerAction Phaseでindex番目プレイヤーがやることを書く
-            Debug.Log("player " + index.ToString());
-            _phaseManager.TurnCount.Subscribe(count =>
+                if(first)
+                {
+                    cardChoise = e.Source;
+                    initialPosition.x = e.Source.transform.position.x;
+                    initialPosition.y = e.Source.transform.position.y;
+                    initialPosition.z = e.Source.transform.position.z;
+                    first = false;
+                }
+            })
+            .Do(e =>
             {
-                Debug.Log("count " + count.ToString());
-                //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvanceTurn(count));
-                _phaseManager.AdvanceTurn(count);
-            },
-            () =>
+                var card = e.Source;
+                var position = e.MousePosition;
+                position.z = card.transform.position.z - Camera.main.transform.position.z;
+                card.transform.position = Camera.main.ScreenToWorldPoint(position);
+            })
+            .Select(e =>
             {
-                // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
-                _phaseManager.AdvancePlayer(index);
+                var card = e.Source;
+                if (ripenersModel[0].Empty.Value && Vector3.Distance(ripenersView[0].transform.position, card.transform.position) < 50)
+                {
+                    validChoise = true;
+                    return Tuple.Create(_vmCard.First(v => v.Value == card).Key, ripenersModel[0]);
+                }
+                else if (ripenersModel[1].Empty.Value && Vector3.Distance(ripenersView[1].transform.position, card.transform.position) < 50)
+                {
+                    validChoise = true;
+                    return Tuple.Create(_vmCard.First(v => v.Value == card).Key, ripenersModel[1]);
+                }
+                else
+                {
+                    validChoise = false;
+                    return Tuple.Create<MeatCard, Ripener>(_vmCard.First(v => v.Value == card).Key, null);
+                }
+            })
+            .Finally(()=>
+            {
+                // 有効な選択でなかった場合はもとの位置に戻す
+                if(!validChoise && cardChoise != null)
+                {
+                    cardChoise.transform.position = initialPosition;
+                }
             });
-        },
-        () =>
-        {
-            Debug.Log("onPlayerAction End");
-            // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.PlayerAction));
-            _phaseManager.FinishPhase(PhaseManager.Phase.PlayerAction);
-        }).AddTo(phaseRangedDisposable);
-    }
-
-    void onPutrefy()
-    {
-        //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        //{
-            Debug.Log("onPutrefy End");
-            _phaseManager.FinishPhase(PhaseManager.Phase.Putrefy);
-        //});
-    }
-
-    void onCashOut()
-    {
-        _phaseManager.CurrentPlayerIndex.Subscribe(index =>
-        {
-            // CashOut Phaseでindex番目プレイヤーがやることを書く
-            Debug.Log("player " + index.ToString());
-            //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
-            _phaseManager.AdvancePlayer(index);
-        },
-        ()=>
-        {
-            Debug.Log("onCashOut End");
-            //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.CashOut));
-            _phaseManager.FinishPhase(PhaseManager.Phase.CashOut);
-        }).AddTo(phaseRangedDisposable);
-    }
-
-    void onFoodPreparation()
-    {
-        _phaseManager.CurrentPlayerIndex.Subscribe(index =>
-        {
-            // CashOut Phaseでindex番目プレイヤーがやることを書く
-            Debug.Log("player " + index.ToString());
-            // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.AdvancePlayer(index));
-            _phaseManager.AdvancePlayer(index);
-        },
-        () =>
-        {
-            Debug.Log("onFoodPreparation End");
-            // Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ => _phaseManager.FinishPhase(PhaseManager.Phase.FoodPreparation));
-            _phaseManager.FinishPhase(PhaseManager.Phase.FoodPreparation);
-        }).AddTo(phaseRangedDisposable);
-    }
-
-    void onAging()
-    {
-        Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        {
-            Debug.Log("onAging End");
-            _phaseManager.FinishPhase(PhaseManager.Phase.Aging);
-        });
-    }
-
-    void onEnding()
-    {
-        //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
-        //{
-            Debug.Log("onEnding End");
-            _phaseManager.FinishPhase(PhaseManager.Phase.Ending);
-        //});
     }
 }

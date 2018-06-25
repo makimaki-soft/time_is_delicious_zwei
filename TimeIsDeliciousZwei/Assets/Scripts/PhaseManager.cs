@@ -21,203 +21,98 @@ public class PhaseManager : MonoBehaviour
         Unknown = 99        // 不明なフェイズ
     }
 
-    // Reactive Property
-    private ReactiveProperty<Phase> _phase = new ReactiveProperty<Phase>(Phase.Unknown);
-    public IReactiveProperty<Phase> CurrentPhase
+    [SerializeField]
+    private MainScenePresenter _presenter;
+
+    void Start()
     {
-        get
-        {
-            return _phase;
-        }
-    }
-
-    private ReactiveProperty<int> _round = new ReactiveProperty<int>(0);
-    public IReactiveProperty<int> RoundCount
-    {
-        get
-        {
-            return _round;
-        }
-    }
-
-    private ReactiveProperty<int> _currPlayer = new ReactiveProperty<int>(0);
-    private ObservableEnumerable<int> _playerIdx; // これは消す方向で。
-    public IReactiveProperty<int> CurrentPlayerIndex
-    {
-        get
-        {
-            return _currPlayer;
-        }
-    }
-
-    private Subject<int> _currPlayerSubject = new Subject<int>();
-    public IObservable<int> CurrentPlayerIndex_
-    {
-        get { return _currPlayerSubject; }
-    }
-
-    private ObservableEnumerable<int> _turn;
-    public IObservable<int> TurnCount
-    {
-        get
-        {
-            return _turn.IterationAsObservable;
-        }
-    }
-
-    public IReactiveProperty<bool> EndFlag { get; private set; } = new ReactiveProperty<bool>(false);
-
-    // Dependency
-    public GameMaster GameMagager { private get; set; }
-
-    public void StartGame()
-    {
-        var indexList = new List<int>();
-        for(int i=0; i< GameMagager.NumberOfPlayers; i++)
-        {
-            indexList.Add(i);
-        }
-        _playerIdx = new ObservableEnumerable<int>(indexList);
-
-        var turnList = new List<int>();
-        for (int i = 0; i < GameMagager.ActionCount; i++)
-        {
-            turnList.Add(i);
-        }
-        _turn = new ObservableEnumerable<int>(turnList);
-
         Observable.FromCoroutine(PhaseControl).Subscribe().AddTo(gameObject);
-    }
-
-    Dictionary<Phase, bool> _phaseFlag = new Dictionary<Phase, bool>();
-    Dictionary<int, bool> _turnFlag = new Dictionary<int, bool>();
-    Dictionary<int, bool> _playerFlag = new Dictionary<int, bool>();
-
-    private Subject<Unit> _syncSubject = new Subject<Unit>();
-
-    public void FinishPhase(Phase phase)
-    {
-        _phaseFlag[phase] = true;
-        _syncSubject.OnNext(Unit.Default);
-    }
-
-    public void AdvancePlayer(int index)
-    {
-        _playerFlag[index] = true;
-        _syncSubject.OnNext(Unit.Default);
-    }
-
-    public void AdvanceTurn(int turn)
-    {
-        _turnFlag[turn] = true;
-        _syncSubject.OnNext(Unit.Default);
-    }
-
-    private ObservableYieldInstruction<bool> SyncPhase(Phase phase)
-    {
-        return _syncSubject.StartWith(Unit.Default).Select(_ => _phaseFlag.GetOrDefault(phase)).Where(b=>b).FirstOrDefault().ToYieldInstruction();
-    }
-
-    private ObservableYieldInstruction<bool> SyncPlayer(int index)
-    {
-        return _syncSubject.StartWith(Unit.Default).Select(_ => _playerFlag.GetOrDefault(index)).Where(b => b).FirstOrDefault().ToYieldInstruction();
-    }
-
-    private ObservableYieldInstruction<bool> SyncAction(int count)
-    {
-        return _syncSubject.StartWith(Unit.Default).Select(_ => _turnFlag.GetOrDefault(count)).Where(b => b).FirstOrDefault().ToYieldInstruction();
     }
 
     IEnumerator PhaseControl()
     {
-        _phaseFlag.Clear();
-        _round.Value = 0;
+        /* 定数 */
+        int NumberOfPlayers = 4;            // プレイヤー数
+        int CommonResourcesCapacity = 4;    // 共通リソースにおけるカードの枚数
+        int InitialHand = 8;                // 初期手札枚数
+        int NumberOfRipeners = 2;           // 一人あたりの熟成器の数
 
-        _phase.Value = Phase.GamePreparation;
+        /* コンポーネントModelの準備 */
 
-        yield return SyncPhase(Phase.GamePreparation);
-
-        /* 初期仕込みフェイズ */
-        _phase.Value = Phase.InitialPreparation;
-
-        for (int i = 0; i < GameMagager.NumberOfRipeners; i++)
+        // 1. 山札
+        var cards = new List<MeatCard>();
+        foreach (MeatDef.MeatType type in Enum.GetValues(typeof(MeatDef.MeatType)))
         {
-            for (int idx = 0; idx < GameMagager.NumberOfPlayers; idx++)
+            foreach (MeatDef.ColorElement color in Enum.GetValues(typeof(MeatDef.ColorElement)))
             {
-                Debug.Log("Player Change " + idx);
-                _currPlayer.Value = idx;
-                _currPlayerSubject.OnNext(idx);
-
-                // プレイヤー持つ熟成器からのEmptyプロパティの変更通知をうけたら、
-                // 他の熟成器も含めてEmptyでない熟成器の数を調べ、それが最初は1,次は2だったら次のプレイヤーへ。
-                yield return Observable.Merge(GameMagager.Players[idx].Ripeners.Select(r => r.Empty))
-                                       .Select(_ => GameMagager.Players[idx].Ripeners.Select(r => r.Empty.Value).Where(b => !b).Count())
-                                       .Where(notEmptyNum => notEmptyNum == i+1)
-                                       .First()
-                                       .ToYieldInstruction();
+                for (int i = 0; i < 3; i++)
+                {
+                    cards.Add(new MeatCard(type, color));
+                }
             }
         }
 
-        // yield return SyncPhase(Phase.InitialPreparation);
+        var deckModel = new Deck<MeatCard>(cards);
+        deckModel.Shuffle();
 
-        for (_round.Value = 1; /* forever */ ; _round.Value++)
+        // 2. プレイヤー
+        var players = new List<Player>();
+        for (int index = 0; index < NumberOfPlayers; index++)
         {
-            _phaseFlag.Clear();
-
-            _phase.Value = Phase.PlayerAction;
-
-            _playerFlag.Clear();
-            foreach (var index in _playerIdx)
-            {
-                _turnFlag.Clear();
-                foreach (var cnt in _turn)
-                {
-                    yield return SyncAction(cnt);
-                }
-                yield return SyncPlayer(index);
-            }
-
-            yield return SyncPhase(Phase.PlayerAction);
-            
-            _phase.Value = Phase.Putrefy;
-
-            yield return SyncPhase(Phase.Putrefy);
-
-            _phase.Value = Phase.CashOut;
-
-            _playerFlag.Clear();
-            foreach (var index in _playerIdx)
-            {
-                yield return SyncPlayer(index);
-
-                if(false)
-                {
-                    EndFlag.Value = true;
-                }
-            }
-            
-            yield return SyncPhase(Phase.CashOut);
-
-            if (EndFlag.Value)
-            {
-                break;
-            }
-
-            _phase.Value = Phase.FoodPreparation;
-
-            _playerFlag.Clear();
-            foreach (var index in _playerIdx)
-            {
-                yield return SyncPlayer(index);
-            }
-
-            yield return SyncPhase(Phase.FoodPreparation);
-
-            _phase.Value = Phase.Aging;
-
-            yield return SyncPhase(Phase.Aging);
+            players.Add(new Player());
         }
 
-        _phase.Value = Phase.Ending;
+        // 3. 共通リソース
+        var resource = new CommonResource(CommonResourcesCapacity);
+
+        /* ゲームの準備 */
+
+        // 各プレイヤーに８枚ずつ肉カードを配る
+        for (int n = 0; n < InitialHand; n++)
+        {
+            foreach (var playerModel in players)
+            {
+                var cardModel = deckModel.Open();
+                yield return _presenter.OpenCard(cardModel).ToYieldInstruction();
+                playerModel.AddHand(cardModel);
+                yield return _presenter.AddHand(playerModel.Index, cardModel).ToYieldInstruction();
+            }
+        }
+
+        // 共通リソース置き場に肉を配置
+        for (int n = 0; n < CommonResourcesCapacity; n++)
+        {
+            var cardModel = deckModel.Open();
+            yield return _presenter.OpenCard(cardModel).ToYieldInstruction();
+            resource.AddCard(cardModel);
+            yield return _presenter.AddCommonResource(cardModel).ToYieldInstruction();
+        }
+
+        /* ゲーム開始 */
+        // スタートプレイヤーから時計回りに、１枚ずつ手札から肉カードを熟成器に配置する。全員の熟成器が空でなくなるまで繰り返す
+        while (players.SelectMany(player=>player.Ripeners).Select(r=>r.Empty.Value).Where(b=>b==true).Count() != 0 )
+        {
+            for (int index = 0; index < NumberOfPlayers; index++)
+            {
+                while (true)
+                {
+                    // TODO : PhaseManagerとPresenter間の情報のやり取りを整理する
+                    //        ViewとModelの対応、引数にModelを渡すか、IDなどにするか？
+                    var cardRipenerSelect = _presenter.Preparation(players[index]).ToYieldInstruction();
+                    yield return cardRipenerSelect;
+                    var selection = cardRipenerSelect.Result;
+                    if (selection.Item2 != null)
+                    {
+                        selection.Item2.AddCard(selection.Item1);
+                        yield return _presenter.MoveHandToRipener(players[index], players[index].Ripeners.IndexOf(selection.Item2), selection.Item1).ToYieldInstruction();
+                        break;
+                    }
+                }
+            }
+        }
+
+        Debug.Log("End PhaseControl");
     }
+
+
 }

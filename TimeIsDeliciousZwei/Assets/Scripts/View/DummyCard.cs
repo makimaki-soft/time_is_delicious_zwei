@@ -42,9 +42,8 @@ public class DummyCard : MonoBehaviour {
     {
         get
         {
-            var onDrag = _eventTrigger.OnMouseDragAsObservable().Select(_ => new CardEventData(true, Input.mousePosition, this));
-            var endDrag = _eventTrigger.OnEndDragAsObservable().Select(_ => new CardEventData(false, Input.mousePosition, this));
-            return Observable.Merge(onDrag, endDrag);
+            return _eventTrigger.OnMouseDragAsObservable().TakeUntil(_eventTrigger.OnEndDragAsObservable())
+                .Select( _ => new CardEventData(true, Input.mousePosition, this));
         }
     }
 }
