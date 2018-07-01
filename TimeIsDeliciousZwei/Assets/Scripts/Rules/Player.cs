@@ -37,6 +37,9 @@ namespace TIDZ
             Hand.Add(card);
         }
 
-        
+        public void RemoveHand(MeatCard card)
+        {
+            Hand.Remove(card);
+        }
     }
 }

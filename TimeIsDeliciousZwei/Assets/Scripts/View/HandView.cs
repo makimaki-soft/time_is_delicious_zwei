@@ -15,6 +15,11 @@ public class HandView : MonoBehaviour {
         return cardList.Find(v => v.ModelID == ID);
     }
 
+    public void RemoveHand(CardView card)
+    {
+        cardList.Remove(card);
+    }
+
     public IObservable<Unit> AddHandAnimation(CardView card)
     {
         cardList.Add(card);
