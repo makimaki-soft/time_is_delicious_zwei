@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UniRx;
 using UniRx.Operators;
 
-
 /**
  * 連続して入ってきたメッセージをQueueにため、nextに指定したストリームがonNextされるたびに１つずつメッセージを流す
  */

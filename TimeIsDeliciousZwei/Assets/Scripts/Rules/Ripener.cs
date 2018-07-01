@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UniRx;
 using static TIDZ.MeatDef;
 
@@ -7,6 +8,8 @@ namespace TIDZ
     // 熟成器クラス
     public class Ripener
     {
+        public Guid ID { get; private set; } = Guid.NewGuid();
+
         // カード追加チェック
         public bool CanAdd(MeatCard card)
         {

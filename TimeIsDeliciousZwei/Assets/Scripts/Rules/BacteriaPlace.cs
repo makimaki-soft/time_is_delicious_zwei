@@ -1,9 +1,11 @@
-﻿namespace TIDZ
+﻿using static TIDZ.MeatDef;
+
+namespace TIDZ
 {
     public class BacteriaPlace
     {
         // 属性色
-        public Bacteria.ColorElement Color { get; private set; }
+        public ColorElement Color { get; private set; }
 
         // 左側隣接菌トークン置き場
         public BacteriaPlace LeftSide { get; private set; }

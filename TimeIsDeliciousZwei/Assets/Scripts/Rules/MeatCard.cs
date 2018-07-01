@@ -15,11 +15,6 @@ namespace TIDZ
             Type = type;
             Color = color;
         }
-
-        public void Open()
-        {
-
-        }
     }
 }
 

@@ -20,7 +20,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4597850877943764}
   - component: {fileID: 212692576857200390}
-  - component: {fileID: 114883561487993312}
+  - component: {fileID: 114091817273310552}
   - component: {fileID: 61840905475241124}
   m_Layer: 0
   m_Name: DummyCard
@@ -67,7 +67,7 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 6.26, y: 10.51}
   m_EdgeRadius: 0
---- !u!114 &114883561487993312
+--- !u!114 &114091817273310552
 MonoBehaviour:
   m_ObjectHideFlags: 1
   m_PrefabParentObject: {fileID: 0}
@@ -75,7 +75,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1168287637860542}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f621d4423470eb4eb11ae434d4e4220, type: 3}
+  m_Script: {fileID: 11500000, guid: 4cd86f46bcdfbe2499bc999e94b08177, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!212 &212692576857200390

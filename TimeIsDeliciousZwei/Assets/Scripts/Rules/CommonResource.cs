@@ -6,8 +6,8 @@ namespace TIDZ
     // 共通肉カード置き場
     public class CommonResource
     {
-        private List<MeatCard> _internal;
         private ReactiveCollection<MeatCard> _source;
+        private int maxCount;
         public ReactiveCollection<MeatCard> Cards
         {
             get { return _source; }
@@ -16,18 +16,19 @@ namespace TIDZ
         // 入手できるカード
         public IReadOnlyList<MeatCard> Availables
         {
-            get { return _internal.AsReadOnly(); }
+            get { return _source; }
         }
 
         public CommonResource(int numResources)
         {
-            _internal = new List<MeatCard>(numResources);
+            maxCount = numResources;
+            var _internal = new List<MeatCard>(numResources);
             _source = new ReactiveCollection<MeatCard>(_internal);
         }
 
         public void AddCard(MeatCard card)
         {
-            if(_internal.Count < _internal.Capacity)
+            if(_source.Count < maxCount)
             {
                 _source.Add(card);
             }

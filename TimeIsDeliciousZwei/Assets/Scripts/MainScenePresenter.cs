@@ -1,20 +1,16 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using UniRx;
-using System;
-
-using TIDZ;
 using System.Linq;
+using TIDZ;
+using UniRx;
+using UnityEngine;
 
-public class MainScenePresenter : MonoBehaviour
+public partial class MainScenePresenter : MonoBehaviour
 {
-    [SerializeField]
-    private DummyDeck _deckView;
-    
-    private List<DummyHand> _handViews;
+    private List<HandView> _handViews;
 
-    private List<List<DummyRipener>> _ripenerVeiws;
+    private List<List<RipenerView>> _ripenerVeiws;
 
     [SerializeField]
     private GameObject _handPrefab;
@@ -22,135 +18,189 @@ public class MainScenePresenter : MonoBehaviour
     [SerializeField]
     private GameObject _ripenerPrefab;
 
-    private GameObject _commonRes;
+    private CommonResourceView _commonRes;
 
-    // ModelとViewの対応関係(GameObjectが削除されるときにDictionaryからも削除しないとリークする気がする）
-    Dictionary<MeatCard, DummyCard> _vmCard = new Dictionary<MeatCard, DummyCard>();
+    List<BacteriaPlaceView> _bacterias;
+
+    CardView _nextCard;
+
+    [SerializeField]
+    private MainDeck mainDeck;
+
+    // Model //
+    private Deck<MeatCard> deckModel;
+    private List<Player> playerModels;
+    private CommonResource resourceModel;
+
+    private Dictionary<CardView, MeatCard> cardVM = new Dictionary<CardView, MeatCard>();
+
+    /* 定数 */
+    int NumberOfPlayers = 4;            // プレイヤー数
+    int CommonResourcesCapacity = 4;    // 共通リソースにおけるカードの枚数
+    int InitialHand = 8;                // 初期手札枚数
+    int NumberOfRipeners = 2;           // 一人あたりの熟成器の数
+    int ActionCount = 2;                // １ラウンドあたりのプレイヤーのアクション数
 
     // Use this for initialization
-    void Start () {
-
-        int playerNum = 4;
-        int NumberOfRipeners = 2;
-
-        // View生成
-        _commonRes = GameObject.Find("ComRes");
-
-        _handViews = new List<DummyHand>(playerNum);
-        for (int i = 0; i < playerNum; i++)
+    void Start()
+    {
+        // View 初期化
+        _handViews = new List<HandView>(NumberOfPlayers);
+        for (int i = 0; i < NumberOfPlayers; i++)
         {
-            _handViews.Add(Instantiate(_handPrefab).GetComponent<DummyHand>());
-            _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x + i * 10, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
+            _handViews.Add(Instantiate(_handPrefab).GetComponent<HandView>());
+            _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x + i * 15, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
         }
 
-        _ripenerVeiws = new List<List<DummyRipener>>();
-        for (int i = 0; i < playerNum; i++)
+        _commonRes = GameObject.Find("ComRes").GetComponent<CommonResourceView>();
+
+        // Model 初期化
+        deckModel = CreateDeck();
+        playerModels = new List<Player>();
+        for (int index = 0; index < NumberOfPlayers; index++)
         {
-            var ripener = new List<DummyRipener>();
+            playerModels.Add(new Player());
+        }
+        resourceModel = new CommonResource(CommonResourcesCapacity);
+
+        _ripenerVeiws = new List<List<RipenerView>>();
+        for (int i = 0; i < NumberOfPlayers; i++)
+        {
+            var ripener = new List<RipenerView>();
             for (int j = 0; j < NumberOfRipeners; j++)
             {
-                ripener.Add(Instantiate(_ripenerPrefab).GetComponent<DummyRipener>());
-
+                var view = Instantiate(_ripenerPrefab).GetComponent<RipenerView>();
+                view.ModelID = playerModels[i].Ripeners[j].ID;
+                ripener.Add(view);
                 ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j * 17, ripener[j].transform.position.z);
             }
             _ripenerVeiws.Add(ripener);
         }
+
+        _bacterias = new List<BacteriaPlaceView>();
+        _bacterias.Add(GameObject.Find("Bac_Red").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Bac_Blue").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Bac_Green").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Bac_Yellow").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Bac_Purple").GetComponent<BacteriaPlaceView>());
+
+        Observable.FromCoroutine(PhaseControlMain).Subscribe().AddTo(gameObject);
     }
 
-    public IObservable<Unit> OpenCard(MeatCard card)
+    Deck<MeatCard> CreateDeck()
     {
-        return _deckView.OpenCard(card.Type, card.Color, card.ID)
-                        .Do(cardView => _vmCard[card] = cardView)
-                        .AsUnitObservable();
-    }
-
-    public IObservable<Unit> AddHand(int playerIdx, MeatCard card)
-    {
-        return _handViews[playerIdx].AddHand(_vmCard[card]);
-    }
-
-    public IObservable<Unit> RemoveHand(int playerIdx, MeatCard card)
-    {
-        return _handViews[playerIdx].RemoveHand(_vmCard[card]);
-    }
-
-    public IObservable<Unit> MoveHandToRipener(Player player, int ripenerIndex, MeatCard card)
-    {
-        var index = player.Index;
-        var r = _ripenerVeiws[index][ripenerIndex];
-
-        return _handViews[index].RemoveHand(_vmCard[card]).SelectMany(_ => r.AddCard(_vmCard[card]));
-    }
-
-    public IObservable<Unit> AddCommonResource(MeatCard card)
-    {
-        var view = _vmCard[card];
-        view.transform.position = _commonRes.transform.position;
-        return Observable.Return(Unit.Default);
-    }
-
-    public IObservable<Tuple<MeatCard, Ripener>> Preparation(Player player)
-    {
-        // 手札カードのドラッグを有効にする
-        // 最初に触ったカードをドラッグ状態にする
-        // そのカードが、そのプレイヤーの熟成器の近くだったら、熟成器を強調する
-        // 手を離してドラッグが終わったとき、有効な熟成器の近くだったら、その熟成器とカードの情報をonNextする
-        // なにもなかったら、カードを最初の位置に戻して、nullをonNextする
-        var playerIdx = player.Index;
-        var ripenersModel = player.Ripeners;
-        var ripenersView = _ripenerVeiws[playerIdx];
-
-        bool validChoise = false;
-        DummyCard cardChoise = null;
-
-        Vector3 initialPosition = new Vector3(0, 0, 0);
-        bool first = true;
-
-        return Observable.Amb(_handViews[playerIdx].CurrentCard.Select(_ => _.OnDragAsObservabale))
-            .Do(e =>
+        var cards = new List<MeatCard>();
+        foreach (MeatDef.MeatType type in Enum.GetValues(typeof(MeatDef.MeatType)))
+        {
+            foreach (MeatDef.ColorElement color in Enum.GetValues(typeof(MeatDef.ColorElement)))
             {
-                if(first)
+                for (int i = 0; i < 3; i++)
                 {
-                    cardChoise = e.Source;
-                    initialPosition.x = e.Source.transform.position.x;
-                    initialPosition.y = e.Source.transform.position.y;
-                    initialPosition.z = e.Source.transform.position.z;
-                    first = false;
+                    cards.Add(new MeatCard(type, color));
                 }
-            })
-            .Do(e =>
+            }
+        }
+
+        return new Deck<MeatCard>(cards);
+    }
+
+    IEnumerator PhaseControlMain()
+    {
+        // 山札シャッフル
+        deckModel.Shuffle();
+
+        foreach(var player in playerModels)
+        {
+            player.Hand.ObserveCountChanged().Subscribe(count => _handViews[player.Index].CardCount = count).AddTo(_handViews[player.Index]);
+        }
+        resourceModel.Cards.ObserveCountChanged().Subscribe(count=> _commonRes.CardCount = count).AddTo(_commonRes);
+
+
+        // 各プレイヤーに８枚ずつ肉カードを配る
+        for (int n = 0; n < InitialHand; n++)
+        {
+            foreach (var playerModel in playerModels)
             {
-                var card = e.Source;
-                var position = e.MousePosition;
-                position.z = card.transform.position.z - Camera.main.transform.position.z;
-                card.transform.position = Camera.main.ScreenToWorldPoint(position);
-            })
-            .Select(e =>
-            {
-                var card = e.Source;
-                if (ripenersModel[0].Empty.Value && Vector3.Distance(ripenersView[0].transform.position, card.transform.position) < 50)
+                var cardModel = deckModel.Open();
+                var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
+                cardVM[cardView] = cardModel;
+
+                yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
+
+                playerModel.AddHand(cardModel);
+
+                if (n == InitialHand - 1 && playerModel.Index == NumberOfPlayers - 1)
                 {
-                    validChoise = true;
-                    return Tuple.Create(_vmCard.First(v => v.Value == card).Key, ripenersModel[0]);
-                }
-                else if (ripenersModel[1].Empty.Value && Vector3.Distance(ripenersView[1].transform.position, card.transform.position) < 50)
-                {
-                    validChoise = true;
-                    return Tuple.Create(_vmCard.First(v => v.Value == card).Key, ripenersModel[1]);
+                    yield return _handViews[playerModel.Index].AddHandAnimation(cardView).ToYieldInstruction();
                 }
                 else
                 {
-                    validChoise = false;
-                    return Tuple.Create<MeatCard, Ripener>(_vmCard.First(v => v.Value == card).Key, null);
+                    _handViews[playerModel.Index].AddHandAnimation(cardView).Subscribe();
                 }
-            })
-            .Finally(()=>
+            }
+        }
+
+        // 共通リソース置き場に肉を配置
+        for (int n = 0; n < CommonResourcesCapacity; n++)
+        {
+            var cardModel = deckModel.Open();
+            var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
+            cardVM[cardView] = cardModel;
+
+            yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
+
+            resourceModel.AddCard(cardModel);
+            yield return _commonRes.AddResourceAnimation(cardView).ToYieldInstruction();
+        }
+
+        // 初期熟成
+        while (playerModels.SelectMany(player => player.Ripeners).Select(r => r.Empty.Value).Where(b => b == true).Count() != 0)
+        {
+            for (int index = 0; index < NumberOfPlayers; index++)
             {
-                // 有効な選択でなかった場合はもとの位置に戻す
-                if(!validChoise && cardChoise != null)
+                while (true)
                 {
-                    cardChoise.transform.position = initialPosition;
+                    var playerModel = playerModels[index];
+                    var handView = _handViews[index];
+                    var cardViews = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
+
+                    // カード選択
+                    var cardSelection = Observable.Amb(cardViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    yield return cardSelection;
+
+                    if(!cardSelection.HasResult)
+                    {
+                        continue;
+                    }
+
+                    var selectedCard = cardSelection.Result as CardView;
+                    
+                    yield return selectedCard.OnTouchAnimation().ToYieldInstruction();
+
+                    // 熟成器選択
+                    var ripenersModel = playerModel.Ripeners;
+                    var ripenersViews = ripenersModel.Where(r => r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
+
+                    var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    yield return ripenerSelection;
+
+                    if (!ripenerSelection.HasResult)
+                    {
+                        continue;
+                    }
+
+                    var selectedRipener = ripenerSelection.Result as RipenerView;
+
+                    var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
+                    var selectedCardModel = cardVM[selectedCard];
+                    selectedRipenerModel.AddCard(selectedCardModel);
+                    yield return selectedRipener.AddCardAnimation(selectedCard).ToYieldInstruction();
+
+                    break;
                 }
-            });
+            }
+        }
+
+
     }
 }
