@@ -221,60 +221,101 @@ public partial class MainScenePresenter : MonoBehaviour
             for(int i=0; i<NumberOfPlayers; i++)
             {
                 int index = (round + i) % NumberOfPlayers;
-
-                // 手札、共通リソース、山札の選択
-                var playerModel = playerModels[index];
-                var handView = _handViews[index];
-                var handCardViews = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
-                var resCardViews = resourceModel.Availables.Select(c => cardVM.First(_ => _.Key.ModelID == c.ID).Key);
-                var cardTopView = cardVM.Where(c => c.Key.ModelID == cardTop.ID).Select(kv => kv.Key);
-                var cardViews = handCardViews.Concat(resCardViews).Concat(cardTopView);
-
-                Debug.Log(cardViews.Count());
-
-                // カード選択
-                var cardSelection = Observable.Amb(cardViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
-                yield return cardSelection;
-
-                if (!cardSelection.HasResult)
+                Debug.Log("プレイヤー" + index);
+                int action = 0;
+                while (true)
                 {
-                    continue;
-                }
+                    Debug.Log("アクション : " + (action+1));
+                    
+                    // 手札、共通リソース、山札の選択
+                    var playerModel = playerModels[index];
+                    var handView = _handViews[index];
+                    var handCardViews = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
+                    var resCardViews = resourceModel.Availables.Select(c => cardVM.First(_ => _.Key.ModelID == c.ID).Key);
+                    var cardTopView = cardVM.Where(c => c.Key.ModelID == cardTop.ID).Select(kv => kv.Key);
+                    var cardViews = handCardViews.Concat(resCardViews).Concat(cardTopView);
 
-                var selectedCardView = cardSelection.Result as CardView;
-                var selectedCardModel = cardVM[selectedCardView];
-                if (handCardViews.Contains(selectedCardView))
-                {
-                    Debug.Log("手札がクリックされた");
-                }
-                else if (resCardViews.Contains(selectedCardView))
-                {
-                    Debug.Log("共通リソースがクリックされた");
-                    playerModel.AddHand(resourceModel.GetCard(selectedCardModel));
-                    yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardView).ToYieldInstruction();
+                    Debug.Log(cardViews.Count());
 
-                    var cardModel = deckModel.Open();
-                    var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
-                    cardVM[cardView] = cardModel;
+                    // カード選択
+                    var cardSelection = Observable.Amb(cardViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    yield return cardSelection;
 
-                    yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
+                    if (!cardSelection.HasResult)
+                    {
+                        continue;
+                    }
 
-                    resourceModel.AddCard(cardModel);
-                    yield return _commonRes.AddResourceAnimation(cardView).ToYieldInstruction();
-                }
-                else if (cardTopView.Contains(selectedCardView))
-                {
-                    Debug.Log("山札がクリックされた");
-                    playerModel.AddHand(selectedCardModel);
-                    yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardView).ToYieldInstruction();
+                    var selectedCardView = cardSelection.Result as CardView;
+                    var selectedCardModel = cardVM[selectedCardView];
+                    if (handCardViews.Contains(selectedCardView))
+                    {
+                        Debug.Log("手札がクリックされた");
 
-                    cardTop = deckModel.Open();
-                    cardVM[mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID)] = cardTop;
-                    yield return null; // オープンしたカードのViewが有効になるのを待つために1フレームずらす
-                }
-                else
-                {
-                    Debug.Log("クリックされないはず");
+                        var touchables = _bacterias.Select(b => b.OnTouchAsObservabale);
+                        var ripenersViews = playerModel.Ripeners.Where(r => r.CanAdd(selectedCardModel)).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
+                        touchables = touchables.Concat(ripenersViews.Select(r => r.OnTouchAsObservabale));
+
+                        var selection = Observable.Amb(touchables).First().ToYieldInstruction();
+                        yield return selection;
+
+                        if (!selection.HasResult)
+                        {
+                            continue;
+                        }
+
+                        var touched = selection.Result;
+                        if (touched is RipenerView)
+                        {
+                            Debug.Log("熟成器に追加");
+                            playerModel.RemoveHand(selectedCardModel);
+                            playerModel.Ripeners.Find(r => r.ID == (touched as RipenerView).ModelID).AddCard(selectedCardModel);
+                            handView.RemoveHand(selectedCardView);
+                            yield return (touched as RipenerView).AddCardAnimation(selectedCardView).ToYieldInstruction();
+                        }
+                        else if (touched is BacteriaPlaceView)
+                        {
+                            Debug.Log("菌トークンを除去");
+                            playerModel.RemoveHand(selectedCardModel);
+                            handView.RemoveHand(selectedCardView);
+                            Destroy(selectedCardView.gameObject);
+                        }
+                    }
+                    else if (resCardViews.Contains(selectedCardView))
+                    {
+                        Debug.Log("共通リソースがクリックされた");
+                        playerModel.AddHand(resourceModel.GetCard(selectedCardModel));
+                        yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardView).ToYieldInstruction();
+
+                        var cardModel = deckModel.Open();
+                        var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
+                        cardVM[cardView] = cardModel;
+
+                        yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
+
+                        resourceModel.AddCard(cardModel);
+                        yield return _commonRes.AddResourceAnimation(cardView).ToYieldInstruction();
+                    }
+                    else if (cardTopView.Contains(selectedCardView))
+                    {
+                        Debug.Log("山札がクリックされた");
+                        playerModel.AddHand(selectedCardModel);
+                        yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardView).ToYieldInstruction();
+
+                        cardTop = deckModel.Open();
+                        cardVM[mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID)] = cardTop;
+                        yield return null; // オープンしたカードのViewが有効になるのを待つために1フレームずらす
+                    }
+                    else
+                    {
+                        Debug.Log("クリックされないはず");
+                    }
+
+                    action++;
+                    if(action>=2)
+                    {
+                        break;
+                    }
                 }
             }
 
