@@ -45,13 +45,43 @@ namespace TIDZ
         }
 
         // 熟成度(カード枚数)
-        public int Maturity { get; private set; }
+        public int Maturity
+        {
+            get
+            {
+                return _agingMeats.Count;
+            }
+        }
 
         // 熟成中の肉の種類
-        public MeatType AgingType { get; private set; }
+        public MeatType AgingType
+        {
+            get
+            {
+                if(Empty.Value)
+                {
+                    return default(MeatType);
+                }
+                else
+                {
+                    return _agingMeats[0].Type;
+                }
+            }
+        }
 
         // 熟成器の属性リスト
-        public HashSet<ColorElement> Colors { get; private set; }
+        public HashSet<ColorElement> Colors
+        {
+            get
+            {
+                var ret = new HashSet<ColorElement>();
+                foreach(var col in _agingMeats )
+                {
+                    ret.Add(col.Color);
+                }
+                return ret;
+            }
+        }
 
         // 熟成期間
         private ReactiveProperty<int> _agingPeriod = new ReactiveProperty<int>(0);
@@ -62,6 +92,12 @@ namespace TIDZ
         public void AddDay()
         {
             _agingPeriod.Value++;
+        }
+
+        public void Reset()
+        {
+            _agingPeriod.Value = 0;
+            _agingMeats.Clear();
         }
     }
 }

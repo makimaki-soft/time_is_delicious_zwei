@@ -5,6 +5,7 @@ using System.Linq;
 using TIDZ;
 using UniRx;
 using UnityEngine;
+using static TIDZ.MeatDef;
 
 public partial class MainScenePresenter : MonoBehaviour
 {
@@ -31,6 +32,8 @@ public partial class MainScenePresenter : MonoBehaviour
     private Deck<MeatCard> deckModel;
     private List<Player> playerModels;
     private CommonResource resourceModel;
+    private BacteriaSource bacteriaSrc;
+    private List<BacteriaPlace> bacteriaPlaces;
 
     private Dictionary<CardView, MeatCard> cardVM = new Dictionary<CardView, MeatCard>();
 
@@ -40,6 +43,7 @@ public partial class MainScenePresenter : MonoBehaviour
     int InitialHand = 8;                // 初期手札枚数
     int NumberOfRipeners = 2;           // 一人あたりの熟成器の数
     int ActionCount = 2;                // １ラウンドあたりのプレイヤーのアクション数
+    int NumberOfBacterias = 5;
 
     // Use this for initialization
     void Start()
@@ -56,12 +60,26 @@ public partial class MainScenePresenter : MonoBehaviour
 
         // Model 初期化
         deckModel = CreateDeck();
+        bacteriaSrc = new BacteriaSource();
         playerModels = new List<Player>();
         for (int index = 0; index < NumberOfPlayers; index++)
         {
             playerModels.Add(new Player());
         }
         resourceModel = new CommonResource(CommonResourcesCapacity);
+        bacteriaPlaces = new List<BacteriaPlace>();
+        foreach (ColorElement color in Enum.GetValues(typeof(ColorElement)))
+        {
+            var place = new BacteriaPlace(color);
+            bacteriaPlaces.Add(place);
+        }
+
+        bacteriaPlaces[0].LeftSide = bacteriaPlaces[4];
+        for(int i=0; i< bacteriaPlaces.Count; i++)
+        {
+            bacteriaPlaces[i].RightSide = bacteriaPlaces[i% bacteriaPlaces.Count];
+            bacteriaPlaces[i % bacteriaPlaces.Count].LeftSide = bacteriaPlaces[i].RightSide;
+        }
 
         _ripenerVeiws = new List<List<RipenerView>>();
         for (int i = 0; i < NumberOfPlayers; i++)
@@ -319,6 +337,176 @@ public partial class MainScenePresenter : MonoBehaviour
                 }
             }
 
+            foreach(var place in bacteriaPlaces)
+            {
+                place.OutBreakInCurrRound = false;
+            }
+
+            // 腐敗フェイズ
+            for (int i=0; i< NumberOfBacterias; i++)
+            {
+                var token = bacteriaSrc.Draw();
+                Debug.Log("Token : " + token.Color);
+
+                // トークンが出てくるアニメーションと待ち合わせ
+
+                var tagetPlace = bacteriaPlaces.Find(bp => bp.Color == token.Color);
+
+                if(!tagetPlace.OutBreakInCurrRound)
+                {
+                    tagetPlace.AddToken(token);
+
+                    // トークンを配置するアニメーションと待ち合わせ
+
+                    if (tagetPlace.OutBreak())
+                    {
+                        // アウトブレイクするアニメーションと待ち合わせ
+
+                        foreach (var rp in playerModels.SelectMany(pm => pm.Ripeners))
+                        {
+                            if (rp.Colors.Contains(tagetPlace.Color))
+                            {
+                                // この熟成器はバースト
+                                rp.Reset();
+                            }
+                        }
+
+                        tagetPlace.OutBreakInCurrRound = true;
+                        yield return Observable.FromCoroutine(_ => RecurveOutBreak(tagetPlace)).ToYieldInstruction();
+                    }
+                }
+            }
+
+
+            // 売却フェイズ
+            for (int i = 0; i < NumberOfPlayers; i++)
+            {
+                int index = (round + i) % NumberOfPlayers;
+                while (true)
+                {
+                    var playerModel = playerModels[index];
+                  
+                    // 熟成器選択
+                    var ripenersModel = playerModel.Ripeners;
+
+                    // このプレイヤーの熟成器に何も入っていなかったら飛ばす
+                    if( ripenersModel.Where(r => !r.Empty.Value).Count() == 0 )
+                    {
+                        break;
+                    }
+
+                    var ripenersViews = ripenersModel.Where(r => r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
+
+                    // Todo : パスボタンを追加する
+                    var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    yield return ripenerSelection;
+
+                    if (!ripenerSelection.HasResult)
+                    {
+                        continue;
+                    }
+
+                    var selectedRipener = ripenerSelection.Result as RipenerView;
+
+                    var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
+
+                    var cashout = selectedRipenerModel.AgingPeriod.Value * selectedRipenerModel.Maturity;
+                    playerModel.Point += cashout;
+                    selectedRipenerModel.Reset();
+                }
+            }
+
+            // 仕込みフェイズ
+            for (int index = 0; index < NumberOfPlayers; index++)
+            {
+                while (true)
+                {
+                    var playerModel = playerModels[index];
+                    var handView = _handViews[index];
+                    var cardViews = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
+
+                    // カード選択
+                    var cardSelection = Observable.Amb(cardViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    yield return cardSelection;
+
+                    if (!cardSelection.HasResult)
+                    {
+                        continue;
+                    }
+
+                    var selectedCard = cardSelection.Result as CardView;
+
+                    yield return selectedCard.OnTouchAnimation().ToYieldInstruction();
+
+                    // 熟成器選択
+                    var ripenersModel = playerModel.Ripeners;
+                    var ripenersViews = ripenersModel.Where(r => r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
+
+                    var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    yield return ripenerSelection;
+
+                    if (!ripenerSelection.HasResult)
+                    {
+                        continue;
+                    }
+
+                    var selectedRipener = ripenerSelection.Result as RipenerView;
+
+                    var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
+                    var selectedCardModel = cardVM[selectedCard];
+                    playerModel.RemoveHand(selectedCardModel);
+                    handView.RemoveHand(selectedCard);
+                    selectedRipenerModel.AddCard(selectedCardModel);
+                    yield return selectedRipener.AddCardAnimation(selectedCard).ToYieldInstruction();
+
+                    break;
+                }
+            }
+
+            // 熟成フェイズ
+            foreach (var ripener in playerModels.SelectMany(player => player.Ripeners))
+            {
+                if(!ripener.Empty.Value)
+                {
+                    ripener.AddDay();
+                }
+            }
         }
     }
+
+    IEnumerator RecurveOutBreak(BacteriaPlace place)
+    {
+        var left = place.LeftSide;
+        var right = place.RightSide;
+
+        yield return null;
+
+        if(!left.OutBreakInCurrRound)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                left.AddToken(bacteriaSrc.DrawByColor(left.Color));
+                if (left.OutBreak())
+                {
+                    left.OutBreakInCurrRound = true;
+                    yield return Observable.FromCoroutine(_ => RecurveOutBreak(left)).ToYieldInstruction();
+                }
+            }
+        }
+
+        if (!right.OutBreakInCurrRound)
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                right.AddToken(bacteriaSrc.DrawByColor(right.Color));
+                if (right.OutBreak())
+                {
+                    right.OutBreakInCurrRound = true;
+                    yield return Observable.FromCoroutine(_ => RecurveOutBreak(right)).ToYieldInstruction();
+                }
+            }
+        }       
+    }
 }
+
+

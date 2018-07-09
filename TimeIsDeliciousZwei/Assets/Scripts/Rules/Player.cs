@@ -17,7 +17,7 @@ namespace TIDZ
         public ReactiveCollection<MeatCard> Hand { get; private set; }
 
         // 得点
-        public int Point { get; private set; }
+        public int Point { get; set; }
 
         public Player()
         {
