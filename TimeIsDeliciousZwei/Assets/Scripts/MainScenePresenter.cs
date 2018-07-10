@@ -80,13 +80,14 @@ public class MainScenePresenter : MonoBehaviour {
 
     void onGamePreparation()
     {
-        _card.OnClickAsObservabale.SelectMany(_ => _card.TestAnimation())
+        /*
+        _card.OnClickAsObservabale.SelectMany(_ => _card.FlipAnimation())
             .Subscribe(_ =>
             {
                 Debug.Log("onPreparation End");
                 _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
             });
-
+        */
 
         //Observable.Timer(TimeSpan.FromSeconds(2)).Subscribe(_ =>
         //{
