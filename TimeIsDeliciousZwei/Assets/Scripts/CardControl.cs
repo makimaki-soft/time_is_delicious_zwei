@@ -15,6 +15,7 @@ public class CardControl : MonoBehaviour
     ObservableEventTrigger _eventTrigger;
     SpriteGlowEffect _spriteGlow;
     SpriteRenderer _spriteRenderer;
+    public Guid ModelID { get; set; }
 
     [SerializeField]
 	public AnimationCurve animCurve = AnimationCurve.Linear(0, 0, 1, 1);
@@ -36,8 +37,16 @@ public class CardControl : MonoBehaviour
         _spriteGlow = GetComponent<SpriteGlowEffect>();
         _spriteRenderer = GetComponent<SpriteRenderer>();
 
-        handControl.addClickObserver(this);
-        handControl.addDealObserver(this);
+        //handControl.addClickObserver(this);
+        //handControl.addDealObserver(this);
+    }
+
+    public IObservable<MonoBehaviour> OnTouchAsObservabale
+    {
+        get
+        {
+            return _eventTrigger.OnPointerClickAsObservable().Select(_ => this);
+        }
     }
 
     public IObservable<Unit> OnClickAsObservabale

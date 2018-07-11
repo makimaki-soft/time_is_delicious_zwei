@@ -8,12 +8,12 @@ public class CommonResourceView : MonoBehaviour {
 
     public int CardCount { get; set; }
 
-    public IObservable<Unit> AddResourceAnimation(CardView card)
+    public IObservable<Unit> AddResourceAnimation(CardControl card)
     {
         return Observable.FromCoroutine(_ => AddResourceAnimationCoroutine(card));
     }
 
-    IEnumerator AddResourceAnimationCoroutine(CardView card)
+    IEnumerator AddResourceAnimationCoroutine(CardControl card)
     {
         var targetpos = transform.position;
         targetpos.x += CardCount * 1.5f;

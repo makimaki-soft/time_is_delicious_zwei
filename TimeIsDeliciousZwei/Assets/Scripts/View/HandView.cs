@@ -8,25 +8,25 @@ public class HandView : MonoBehaviour {
 
     public int CardCount { get; set; }
 
-    List<CardView> cardList = new List<CardView>();
+    List<CardControl> cardList = new List<CardControl>();
 
-    public CardView GetCardView(Guid ID)
+    public CardControl GetCardView(Guid ID)
     {
         return cardList.Find(v => v.ModelID == ID);
     }
 
-    public void RemoveHand(CardView card)
+    public void RemoveHand(CardControl card)
     {
         cardList.Remove(card);
     }
 
-    public IObservable<Unit> AddHandAnimation(CardView card)
+    public IObservable<Unit> AddHandAnimation(CardControl card)
     {
         cardList.Add(card);
         return Observable.FromCoroutine(_ => AddHandAnimationCoroutine(card));
     }
 
-    IEnumerator AddHandAnimationCoroutine(CardView card)
+    IEnumerator AddHandAnimationCoroutine(CardControl card)
     {
         var targetpos = transform.position;
         targetpos.x += CardCount * 1.5f;

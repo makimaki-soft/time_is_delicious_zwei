@@ -23,7 +23,7 @@ public partial class MainScenePresenter : MonoBehaviour
 
     List<BacteriaPlaceView> _bacterias;
 
-    CardView _nextCard;
+    CardControl _nextCard;
 
     [SerializeField]
     private MainDeck mainDeck;
@@ -35,7 +35,7 @@ public partial class MainScenePresenter : MonoBehaviour
     private BacteriaSource bacteriaSrc;
     private List<BacteriaPlace> bacteriaPlaces;
 
-    private Dictionary<CardView, MeatCard> cardVM = new Dictionary<CardView, MeatCard>();
+    private Dictionary<CardControl, MeatCard> cardVM = new Dictionary<CardControl, MeatCard>();
 
     /* 定数 */
     int NumberOfPlayers = 4;            // プレイヤー数
@@ -80,6 +80,27 @@ public partial class MainScenePresenter : MonoBehaviour
             bacteriaPlaces[i].RightSide = bacteriaPlaces[i % bacteriaPlaces.Count];
             bacteriaPlaces[i % bacteriaPlaces.Count].LeftSide = bacteriaPlaces[i].RightSide;
         }
+
+        _ripenerVeiws = new List<List<RipenerView>>();
+        for (int i = 0; i < NumberOfPlayers; i++)
+        {
+            var ripener = new List<RipenerView>();
+            for (int j = 0; j < NumberOfRipeners; j++)
+            {
+                var view = Instantiate(_ripenerPrefab).GetComponent<RipenerView>();
+                view.ModelID = playerModels[i].Ripeners[j].ID;
+                ripener.Add(view);
+                ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j * 17, ripener[j].transform.position.z);
+            }
+            _ripenerVeiws.Add(ripener);
+        }
+
+        _bacterias = new List<BacteriaPlaceView>();
+        _bacterias.Add(GameObject.Find("Kin").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Kin (1)").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Kin (2)").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Kin (3)").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("Kin (4)").GetComponent<BacteriaPlaceView>());
 
         Observable.FromCoroutine(PhaseControlMain).Subscribe().AddTo(gameObject);
     }
@@ -184,9 +205,9 @@ public partial class MainScenePresenter : MonoBehaviour
                         continue;
                     }
 
-                    var selectedCard = cardSelection.Result as CardView;
+                    var selectedCard = cardSelection.Result as CardControl;
                     
-                    yield return selectedCard.OnTouchAnimation().ToYieldInstruction();
+                    yield return selectedCard.SelectedAnimation().ToYieldInstruction();
 
                     // 熟成器選択
                     var ripenersModel = playerModel.Ripeners;
@@ -241,10 +262,10 @@ public partial class MainScenePresenter : MonoBehaviour
                     // 手札、共通リソース、山札の選択
                     var playerModel = playerModels[index];
                     var handView = _handViews[index];
-                    var handCardViews = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
-                    var resCardViews = resourceModel.Availables.Select(c => cardVM.First(_ => _.Key.ModelID == c.ID).Key);
+                    var handCardControls = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
+                    var resCardControls = resourceModel.Availables.Select(c => cardVM.First(_ => _.Key.ModelID == c.ID).Key);
                     var cardTopView = cardVM.Where(c => c.Key.ModelID == cardTop.ID).Select(kv => kv.Key);
-                    var cardViews = handCardViews.Concat(resCardViews).Concat(cardTopView);
+                    var cardViews = handCardControls.Concat(resCardControls).Concat(cardTopView);
 
                     Debug.Log(cardViews.Count());
 
@@ -257,9 +278,9 @@ public partial class MainScenePresenter : MonoBehaviour
                         continue;
                     }
 
-                    var selectedCardView = cardSelection.Result as CardView;
-                    var selectedCardModel = cardVM[selectedCardView];
-                    if (handCardViews.Contains(selectedCardView))
+                    var selectedCardControl = cardSelection.Result as CardControl;
+                    var selectedCardModel = cardVM[selectedCardControl];
+                    if (handCardControls.Contains(selectedCardControl))
                     {
                         Debug.Log("手札がクリックされた");
 
@@ -281,22 +302,22 @@ public partial class MainScenePresenter : MonoBehaviour
                             Debug.Log("熟成器に追加");
                             playerModel.RemoveHand(selectedCardModel);
                             playerModel.Ripeners.Find(r => r.ID == (touched as RipenerView).ModelID).AddCard(selectedCardModel);
-                            handView.RemoveHand(selectedCardView);
-                            yield return (touched as RipenerView).AddCardAnimation(selectedCardView).ToYieldInstruction();
+                            handView.RemoveHand(selectedCardControl);
+                            yield return (touched as RipenerView).AddCardAnimation(selectedCardControl).ToYieldInstruction();
                         }
                         else if (touched is BacteriaPlaceView)
                         {
                             Debug.Log("菌トークンを除去");
                             playerModel.RemoveHand(selectedCardModel);
-                            handView.RemoveHand(selectedCardView);
-                            Destroy(selectedCardView.gameObject);
+                            handView.RemoveHand(selectedCardControl);
+                            Destroy(selectedCardControl.gameObject);
                         }
                     }
-                    else if (resCardViews.Contains(selectedCardView))
+                    else if (resCardControls.Contains(selectedCardControl))
                     {
                         Debug.Log("共通リソースがクリックされた");
                         playerModel.AddHand(resourceModel.GetCard(selectedCardModel));
-                        yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardView).ToYieldInstruction();
+                        yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardControl).ToYieldInstruction();
 
                         var cardModel = deckModel.Open();
                         var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
@@ -307,11 +328,11 @@ public partial class MainScenePresenter : MonoBehaviour
                         resourceModel.AddCard(cardModel);
                         yield return _commonRes.AddResourceAnimation(cardView).ToYieldInstruction();
                     }
-                    else if (cardTopView.Contains(selectedCardView))
+                    else if (cardTopView.Contains(selectedCardControl))
                     {
                         Debug.Log("山札がクリックされた");
                         playerModel.AddHand(selectedCardModel);
-                        yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardView).ToYieldInstruction();
+                        yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardControl).ToYieldInstruction();
 
                         cardTop = deckModel.Open();
                         cardVM[mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID)] = cardTop;
@@ -427,9 +448,9 @@ public partial class MainScenePresenter : MonoBehaviour
                         continue;
                     }
 
-                    var selectedCard = cardSelection.Result as CardView;
+                    var selectedCard = cardSelection.Result as CardControl;
 
-                    yield return selectedCard.OnTouchAnimation().ToYieldInstruction();
+                    yield return selectedCard.SelectedAnimation().ToYieldInstruction();
 
                     // 熟成器選択
                     var ripenersModel = playerModel.Ripeners;

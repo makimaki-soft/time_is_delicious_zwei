@@ -24,12 +24,12 @@ public class RipenerView : MonoBehaviour {
         }
     }
 
-    public IObservable<Unit> AddCardAnimation(CardView card)
+    public IObservable<Unit> AddCardAnimation(CardControl card)
     {
         return Observable.FromCoroutine(_ => AddCardAnimationCoroutine(card));
     }
 
-    IEnumerator AddCardAnimationCoroutine(CardView card)
+    IEnumerator AddCardAnimationCoroutine(CardControl card)
     {
         var targetpos = transform.position;
         targetpos.z -= 0.2f;

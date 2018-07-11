@@ -11,9 +11,9 @@ public class MainDeck : MonoBehaviour {
     [SerializeField]
     private GameObject _cardPrefab;
 
-    public CardView CreateCard(MeatType type, ColorElement color, Guid ID)
+    public CardControl CreateCard(MeatType type, ColorElement color, Guid ID)
     {
-        var view = Instantiate(_cardPrefab).GetComponent<CardView>();
+        var view = Instantiate(_cardPrefab).GetComponent<CardControl>();
         view.ModelID = ID;
 
         var position = transform.position;
@@ -23,12 +23,12 @@ public class MainDeck : MonoBehaviour {
         return view;
     }
 
-    public IObservable<Unit> OpenAnimation(CardView view)
+    public IObservable<Unit> OpenAnimation(CardControl view)
     {
         return Observable.FromMicroCoroutine(_ => OpenAnimationCoroutine(view));
     }
 
-    IEnumerator OpenAnimationCoroutine(CardView view)
+    IEnumerator OpenAnimationCoroutine(CardControl view)
     {
         var position = transform.position;
         position.z -= 2f;
