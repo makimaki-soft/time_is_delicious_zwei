@@ -75,34 +75,27 @@ public partial class MainScenePresenter : MonoBehaviour
         }
 
         bacteriaPlaces[0].LeftSide = bacteriaPlaces[4];
-        for(int i=0; i< bacteriaPlaces.Count; i++)
+        for (int i = 0; i < bacteriaPlaces.Count; i++)
         {
-            bacteriaPlaces[i].RightSide = bacteriaPlaces[i% bacteriaPlaces.Count];
+            bacteriaPlaces[i].RightSide = bacteriaPlaces[i % bacteriaPlaces.Count];
             bacteriaPlaces[i % bacteriaPlaces.Count].LeftSide = bacteriaPlaces[i].RightSide;
         }
 
-        _ripenerVeiws = new List<List<RipenerView>>();
-        for (int i = 0; i < NumberOfPlayers; i++)
-        {
-            var ripener = new List<RipenerView>();
-            for (int j = 0; j < NumberOfRipeners; j++)
-            {
-                var view = Instantiate(_ripenerPrefab).GetComponent<RipenerView>();
-                view.ModelID = playerModels[i].Ripeners[j].ID;
-                ripener.Add(view);
-                ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j * 17, ripener[j].transform.position.z);
-            }
-            _ripenerVeiws.Add(ripener);
-        }
-
-        _bacterias = new List<BacteriaPlaceView>();
-        _bacterias.Add(GameObject.Find("Bac_Red").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Bac_Blue").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Bac_Green").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Bac_Yellow").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Bac_Purple").GetComponent<BacteriaPlaceView>());
-
         Observable.FromCoroutine(PhaseControlMain).Subscribe().AddTo(gameObject);
+    }
+
+    void onGamePreparation()
+    {
+        /*
+        _card.OnClickAsObservabale.SelectMany(_ => _card.FlipAnimation())
+            .Subscribe(_ =>
+            {
+                Debug.Log("onPreparation End");
+                _phaseManager.FinishPhase(PhaseManager.Phase.GamePreparation);
+            });
+        */
+
+        
     }
 
     Deck<MeatCard> CreateDeck()
