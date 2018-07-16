@@ -53,7 +53,7 @@ public partial class MainScenePresenter : MonoBehaviour
         for (int i = 0; i < NumberOfPlayers; i++)
         {
             _handViews.Add(Instantiate(_handPrefab).GetComponent<HandView>());
-            _handViews[i].transform.position = new Vector3(_handViews[i].transform.position.x + i * 15, _handViews[i].transform.position.y, _handViews[i].transform.position.z);
+            _handViews[i].transform.position = new Vector3(-22, (i+1) * -21, 0);
         }
 
         _commonRes = GameObject.Find("ComRes").GetComponent<CommonResourceView>();
@@ -90,7 +90,7 @@ public partial class MainScenePresenter : MonoBehaviour
                 var view = Instantiate(_ripenerPrefab).GetComponent<RipenerView>();
                 view.ModelID = playerModels[i].Ripeners[j].ID;
                 ripener.Add(view);
-                ripener[j].transform.position = new Vector3(ripener[j].transform.position.x + i * 15, ripener[j].transform.position.y + j * 17, ripener[j].transform.position.z);
+                ripener[j].transform.position = new Vector3((i+1) * 30, 10 - (j * 20), 0);
             }
             _ripenerVeiws.Add(ripener);
         }
@@ -155,6 +155,7 @@ public partial class MainScenePresenter : MonoBehaviour
             {
                 var cardModel = deckModel.Open();
                 var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
+                cardView.transform.parent = _handViews[playerModel.Index].transform;
                 cardVM[cardView] = cardModel;
 
                 yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
@@ -173,11 +174,14 @@ public partial class MainScenePresenter : MonoBehaviour
         }
 
         // 共通リソース置き場に肉を配置
+        GameObject ComRes =  GameObject.Find("ComRes");
         for (int n = 0; n < CommonResourcesCapacity; n++)
         {
             var cardModel = deckModel.Open();
             var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
             cardVM[cardView] = cardModel;
+            cardView.transform.parent = ComRes.transform;
+
 
             yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
 
