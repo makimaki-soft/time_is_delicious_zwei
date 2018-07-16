@@ -29,7 +29,7 @@ public class HandView : MonoBehaviour {
     IEnumerator AddHandAnimationCoroutine(CardControl card)
     {
         var targetpos = transform.position;
-        targetpos.x += CardCount * 1.5f;
+        targetpos.x += (CardCount-1) * 6f;
         var srcpos = card.transform.position;
 
         var d = new Vector3((targetpos.x - srcpos.x) / 20f, (targetpos.y - srcpos.y) / 20f, (targetpos.z - srcpos.z) / 20f);
