@@ -42,4 +42,20 @@ public class HandView : MonoBehaviour {
 
         card.transform.position = targetpos;
     }
+
+
+    /*
+	選択したカード以外を非選択状態にする。
+	*/
+    private void resetSelected(CardControl selectedCard)
+    {
+        foreach (CardControl _card in cardList)
+        {
+            Debug.Log(selectedCard.isSelected);
+            if (selectedCard != _card)
+            {
+                _card.isSelected = false;
+            }
+        }
+    }
 }

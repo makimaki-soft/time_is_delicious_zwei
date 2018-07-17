@@ -6,39 +6,58 @@ using UnityEngine.UI;
 using UniRx;
 using UniRx.Triggers;
 using SpriteGlow;
+using static TIDZ.MeatDef;
 
 public class CardControl : MonoBehaviour
 {
-    // ほしい値がわからないのでとりあえずStringを発行する
-    private Subject<string> flipAnimationSubject = new Subject<string>();
+   
+    // private Subject<string> flipAnimationSubject = new Subject<string>();
 
     ObservableEventTrigger _eventTrigger;
     SpriteGlowEffect _spriteGlow;
-    SpriteRenderer _spriteRenderer;
+
+    // SpriteRenderer _spriteRenderer;
+    public MeatType Type { get; set; }
+    public ColorElement Color { get; set; }
     public Guid ModelID { get; set; }
 
-    [SerializeField]
-	public AnimationCurve animCurve = AnimationCurve.Linear(0, 0, 1, 1);
+    GameObject _typeSprite;
+    GameObject _colorElementSprite;
+    List<Color> meatColors = new List<Color>
+    {
+        UnityEngine.Color.red,
+        UnityEngine.Color.blue,
+        UnityEngine.Color.yellow,
+        UnityEngine.Color.green,
+        UnityEngine.Color.magenta
+    };
 
-    public HandControl handControl;
+    //[SerializeField]
+    //public AnimationCurve animCurve = AnimationCurve.Linear(0, 0, 1, 1);
 
     // 点滅用
     public float speed = 1.0f;
     private float time;
-    
-    public bool isSelected = false;
+    public bool isSelected = false; // このカードが選択状態の時はtrue
 
     // 初期位置
-    public Vector3 initPosition;
+    // public Vector3 initPosition;
 
     // Use this for initialization
     void Start () {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
         _spriteGlow = GetComponent<SpriteGlowEffect>();
-        _spriteRenderer = GetComponent<SpriteRenderer>();
+        // _spriteRenderer = GetComponent<SpriteRenderer>();
 
         //handControl.addClickObserver(this);
         //handControl.addDealObserver(this);
+
+        // typeとcolorElementに合わせて見た目を変える
+        _typeSprite = transform.Find("Type").gameObject;
+        _typeSprite.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Type/" + Type.ToString());
+
+        _colorElementSprite = transform.Find("ColorElement").gameObject;
+        _colorElementSprite.GetComponent<SpriteGlowEffect>().GlowColor = meatColors[(int)Color];
     }
 
     public IObservable<MonoBehaviour> OnTouchAsObservabale
@@ -49,6 +68,7 @@ public class CardControl : MonoBehaviour
         }
     }
 
+    /*
     public IObservable<Unit> OnClickAsObservabale
     {
         get
@@ -56,7 +76,9 @@ public class CardControl : MonoBehaviour
             return _eventTrigger.OnPointerDownAsObservable().Select(_=>Unit.Default);
         }
     }
+    */
 
+    /*
     public IObservable<Unit> FlipAnimation()
     {
         // めくるアニメーションと移動アニメーションを分けてる。
@@ -99,6 +121,7 @@ public class CardControl : MonoBehaviour
         // いる？
         flipAnimationSubject.OnNext("FlipAnimationFinished");
     }
+ 
 
     IEnumerator MoveAnimationCoroutine()
     {
@@ -119,6 +142,7 @@ public class CardControl : MonoBehaviour
         // いる？
         flipAnimationSubject.OnNext("MoveAnimationFinished");
     }
+    */
 
     // カード選択時のアニメーション
     public IObservable<Unit> SelectedAnimation()
@@ -145,7 +169,9 @@ public class CardControl : MonoBehaviour
     }
 
     // Update is called once per frame
-    void Update () { 
+    void Update () {
+
+        // 選択されているときは枠を点滅
         if (isSelected)
         {
             _spriteGlow.GlowColor = GetAlphaColor(_spriteGlow.GlowColor);
