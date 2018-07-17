@@ -4,6 +4,11 @@ using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
 
+/*
+ * 使ってない？ CardControlが用意されていたからそっちさわってたけど、
+ * こっちに記述すべき？ sryoji
+ */
+
 public class CardView : MonoBehaviour {
 
     ObservableEventTrigger _eventTrigger;

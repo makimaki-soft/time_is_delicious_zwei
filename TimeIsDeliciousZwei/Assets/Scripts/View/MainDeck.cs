@@ -15,6 +15,8 @@ public class MainDeck : MonoBehaviour {
     {
         var view = Instantiate(_cardPrefab).GetComponent<CardControl>();
         view.ModelID = ID;
+        view.Color = color;
+        view.Type = type;
 
         var position = transform.position;
         position.z -= 2f;
