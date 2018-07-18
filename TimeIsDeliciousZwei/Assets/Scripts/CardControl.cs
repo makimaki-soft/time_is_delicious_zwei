@@ -10,7 +10,6 @@ using static TIDZ.MeatDef;
 
 public class CardControl : MonoBehaviour
 {
-   
     // private Subject<string> flipAnimationSubject = new Subject<string>();
 
     ObservableEventTrigger _eventTrigger;
@@ -166,6 +165,31 @@ public class CardControl : MonoBehaviour
         }
 
         transform.eulerAngles = new Vector3 (0,360, 0);
+    }
+
+    // カード削除時のアニメーション
+    public IObservable<Unit> RemovedAnimation()
+    {
+        var coroutine = Observable.FromCoroutine(RemovedAnimationCoroutine).Publish().RefCount();
+        return coroutine;
+    }
+
+    // カードを消すアニメーション
+    public IEnumerator RemovedAnimationCoroutine()
+    {
+        float angle = 0f;
+        float Speed = 3000f;
+
+        // 1回転
+        while (angle < 360f)
+        {
+            angle += Speed * Time.deltaTime;
+            transform.eulerAngles = new Vector3(0, angle, 0);
+            yield return null;
+        }
+
+        transform.eulerAngles = new Vector3(0, 360, 0);
+        Destroy(gameObject);
     }
 
     // Update is called once per frame
