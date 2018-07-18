@@ -10,6 +10,12 @@ public class RipenerView : MonoBehaviour {
     ObservableEventTrigger _eventTrigger;
     public Guid ModelID { get; set; }
 
+    [SerializeField]
+    private GameObject _type;
+
+    [SerializeField]
+    private List<GameObject> _virus = new List<GameObject>();
+
     // Use this for initialization
     void Start()
     {
@@ -44,5 +50,12 @@ public class RipenerView : MonoBehaviour {
         }
 
         card.transform.position = targetpos;
+
+        // Typeをactiveにする
+        _type.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Type/" + card.Type.ToString());
+        _type.SetActive(true);
+
+        // ウイルスの色を点灯
+        _virus[(int)card.Color].SetActive(true);
     }
 }

@@ -38,7 +38,7 @@ public partial class MainScenePresenter : MonoBehaviour
     private Dictionary<CardControl, MeatCard> cardVM = new Dictionary<CardControl, MeatCard>();
 
     /* 定数 */
-    int NumberOfPlayers = 4;            // プレイヤー数
+    int NumberOfPlayers = 1;            // プレイヤー数
     int CommonResourcesCapacity = 4;    // 共通リソースにおけるカードの枚数
     int InitialHand = 8;                // 初期手札枚数
     int NumberOfRipeners = 2;           // 一人あたりの熟成器の数
@@ -90,7 +90,7 @@ public partial class MainScenePresenter : MonoBehaviour
                 var view = Instantiate(_ripenerPrefab).GetComponent<RipenerView>();
                 view.ModelID = playerModels[i].Ripeners[j].ID;
                 ripener.Add(view);
-                ripener[j].transform.position = new Vector3((i+1) * 30, 10 - (j * 20), 0);
+                ripener[j].transform.position = new Vector3((i+1) * 32.5f, 7 - (j * 20), 0);
             }
             _ripenerVeiws.Add(ripener);
         }
@@ -233,6 +233,9 @@ public partial class MainScenePresenter : MonoBehaviour
                     handView.RemoveHand(selectedCard);
                     selectedRipenerModel.AddCard(selectedCardModel);
                     yield return selectedRipener.AddCardAnimation(selectedCard).ToYieldInstruction();
+                    
+                    // カード削除アニメーション
+                    yield return selectedCard.RemovedAnimation().ToYieldInstruction();
 
                     break;
                 }

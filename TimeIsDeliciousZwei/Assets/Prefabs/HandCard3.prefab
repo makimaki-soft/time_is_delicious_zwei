@@ -192,6 +192,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e04a5200a1df0004b9fc3148501830f0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  removeParticlePrefab: {fileID: 1168738022296922, guid: 874b526e74758a947843d28e1f3f4cbb,
+    type: 2}
   speed: 1
   isSelected: 0
 --- !u!212 &212056875910459132
