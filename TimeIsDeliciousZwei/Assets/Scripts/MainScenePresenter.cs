@@ -237,6 +237,9 @@ public partial class MainScenePresenter : MonoBehaviour
                     // カード削除アニメーション
                     yield return selectedCard.RemovedAnimation().ToYieldInstruction();
 
+                    // カード整頓
+                    yield return _handViews[playerModel.Index].ArrangeHandAnimation().ToYieldInstruction();
+
                     break;
                 }
             }
@@ -322,6 +325,9 @@ public partial class MainScenePresenter : MonoBehaviour
                         }
                         // カード削除アニメーション
                         yield return selectedCardControl.RemovedAnimation().ToYieldInstruction();
+
+                        // カード整頓
+                        yield return _handViews[playerModel.Index].ArrangeHandAnimation().ToYieldInstruction();
                     }
                     else if (resCardControls.Contains(selectedCardControl))
                     {
