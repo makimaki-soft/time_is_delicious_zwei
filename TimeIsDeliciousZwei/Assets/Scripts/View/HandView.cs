@@ -43,7 +43,6 @@ public class HandView : MonoBehaviour {
         card.transform.position = targetpos;
     }
 
-
     /*
 	選択したカード以外を非選択状態にする。
 	*/
@@ -56,6 +55,37 @@ public class HandView : MonoBehaviour {
             {
                 _card.isSelected = false;
             }
+        }
+    }
+
+    /*
+     *  手札を見やすいように整理する
+     */
+    public IObservable<Unit> ArrangeHandAnimation()
+    {
+        return Observable.FromCoroutine(_ => ArrangeHandAnimationCoroutine());
+    }
+
+    IEnumerator ArrangeHandAnimationCoroutine()
+    {
+        int index = 0;
+        foreach (var card in cardList)
+        {
+            var targetpos = transform.position;
+            targetpos.x += index * 6f;
+            var srcpos = card.transform.position;
+
+            float duration = 5f;
+            var d = new Vector3((targetpos.x - srcpos.x) / duration, (targetpos.y - srcpos.y) / duration, (targetpos.z - srcpos.z) / duration);
+
+            for (int i = 0; i < (int)duration; i++)
+            {
+                card.transform.Translate(d);
+                yield return null;
+            }
+
+            index++;
+            card.transform.position = targetpos;
         }
     }
 }
