@@ -96,11 +96,11 @@ public partial class MainScenePresenter : MonoBehaviour
         }
 
         _bacterias = new List<BacteriaPlaceView>();
-        _bacterias.Add(GameObject.Find("Kin").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Kin (1)").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Kin (2)").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Kin (3)").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("Kin (4)").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_red").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_blue").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_yellow").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_green").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_purple").GetComponent<BacteriaPlaceView>());
 
         Observable.FromCoroutine(PhaseControlMain).Subscribe().AddTo(gameObject);
     }
@@ -286,6 +286,7 @@ public partial class MainScenePresenter : MonoBehaviour
                     }
 
                     var selectedCardControl = cardSelection.Result as CardControl;
+                    yield return selectedCardControl.SelectedAnimation().ToYieldInstruction();
                     var selectedCardModel = cardVM[selectedCardControl];
                     if (handCardControls.Contains(selectedCardControl))
                     {
@@ -317,8 +318,10 @@ public partial class MainScenePresenter : MonoBehaviour
                             Debug.Log("菌トークンを除去");
                             playerModel.RemoveHand(selectedCardModel);
                             handView.RemoveHand(selectedCardControl);
-                            Destroy(selectedCardControl.gameObject);
+                            yield return (touched as BacteriaPlaceView).AddCardAnimation(selectedCardControl).ToYieldInstruction();
                         }
+                        // カード削除アニメーション
+                        yield return selectedCardControl.RemovedAnimation().ToYieldInstruction();
                     }
                     else if (resCardControls.Contains(selectedCardControl))
                     {
