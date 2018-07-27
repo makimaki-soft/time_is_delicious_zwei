@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 4825165603281480}
   - component: {fileID: 212783018183948540}
   - component: {fileID: 61604186999291358}
+  - component: {fileID: 114587567978320336}
   - component: {fileID: 114996441589372910}
   m_Layer: 0
   m_Name: Ripener
@@ -247,6 +248,23 @@ BoxCollider2D:
   serializedVersion: 2
   m_Size: {x: 2.54, y: 3.1}
   m_EdgeRadius: 0
+--- !u!114 &114587567978320336
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1031348905906020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8f6d3c6e4250e84192f5b34ce9e71bc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _glowColor: {r: 1, g: 1, b: 1, a: 1}
+  _glowBrightness: 2
+  _outlineWidth: 1
+  _alphaThreshold: 0.01
+  _drawOutside: 0
+  _enableInstancing: 0
 --- !u!114 &114996441589372910
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -265,6 +283,7 @@ MonoBehaviour:
   - {fileID: 1395728535349472}
   - {fileID: 1281069167198414}
   - {fileID: 1873358425295816}
+  speed: 1
 --- !u!212 &212057187845770238
 SpriteRenderer:
   m_ObjectHideFlags: 1

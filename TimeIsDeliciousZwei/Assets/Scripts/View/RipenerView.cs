@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
+using TIDZ;
+using SpriteGlow;
 
 public class RipenerView : MonoBehaviour {
 
@@ -16,10 +18,22 @@ public class RipenerView : MonoBehaviour {
     [SerializeField]
     private List<GameObject> _virus = new List<GameObject>();
 
+
+    // 自分がいまクリック対象かどうか調べるため
+    public Ripener ripener; // ModelIdと役割がかぶっている。要相談。
+    private MainScenePresenter _mspresenter;
+
+    // 点滅用
+    public float speed = 1.0f;
+    private float time;
+    SpriteGlowEffect _spriteGlow;
+
     // Use this for initialization
     void Start()
     {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
+        _mspresenter = GameObject.Find("MainScenePresenter").GetComponent<MainScenePresenter>();
+        _spriteGlow = GetComponent<SpriteGlowEffect>();
     }
 
     public IObservable<MonoBehaviour> OnTouchAsObservabale
@@ -57,5 +71,30 @@ public class RipenerView : MonoBehaviour {
 
         // ウイルスの色を点灯
         _virus[(int)card.Color].SetActive(true);
+    }
+
+    void Update()
+    {
+        MeatCard curentSelectedMeat = _mspresenter.curentSelectedMeat;
+
+        if (curentSelectedMeat != null && ripener != null)
+        {
+           if (ripener.CanAdd(curentSelectedMeat))
+           {
+                _spriteGlow.GlowColor = GetAlphaColor(_spriteGlow.GlowColor);
+            }
+           
+
+        }
+    }
+
+    //Alpha値を更新してColorを返す
+    Color GetAlphaColor(Color color)
+    {
+
+        time += Time.deltaTime * 5.0f * speed;
+        color.a = Mathf.Sin(time) * 0.5f + 0.5f;
+
+        return color;
     }
 }
