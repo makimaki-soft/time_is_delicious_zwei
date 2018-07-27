@@ -45,6 +45,10 @@ public partial class MainScenePresenter : MonoBehaviour
     int ActionCount = 2;                // １ラウンドあたりのプレイヤーのアクション数
     int NumberOfBacterias = 5;
 
+
+    // 選択されている肉
+    public MeatCard curentSelectedMeat { get; private set; }
+
     // Use this for initialization
     void Start()
     {
@@ -57,6 +61,13 @@ public partial class MainScenePresenter : MonoBehaviour
         }
 
         _commonRes = GameObject.Find("ComRes").GetComponent<CommonResourceView>();
+
+        _bacterias = new List<BacteriaPlaceView>();
+        _bacterias.Add(GameObject.Find("virus_place_red").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_blue").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_yellow").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_green").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("virus_place_purple").GetComponent<BacteriaPlaceView>());
 
         // Model 初期化
         deckModel = CreateDeck();
@@ -79,6 +90,7 @@ public partial class MainScenePresenter : MonoBehaviour
         {
             bacteriaPlaces[i].RightSide = bacteriaPlaces[i % bacteriaPlaces.Count];
             bacteriaPlaces[i % bacteriaPlaces.Count].LeftSide = bacteriaPlaces[i].RightSide;
+            _bacterias[i].bacteriaPlace = bacteriaPlaces[i];
         }
 
         _ripenerVeiws = new List<List<RipenerView>>();
@@ -89,18 +101,14 @@ public partial class MainScenePresenter : MonoBehaviour
             {
                 var view = Instantiate(_ripenerPrefab).GetComponent<RipenerView>();
                 view.ModelID = playerModels[i].Ripeners[j].ID;
+                view.ripener = playerModels[i].Ripeners[j];
                 ripener.Add(view);
                 ripener[j].transform.position = new Vector3((i+1) * 32.5f, 7 - (j * 20), 0);
             }
             _ripenerVeiws.Add(ripener);
         }
 
-        _bacterias = new List<BacteriaPlaceView>();
-        _bacterias.Add(GameObject.Find("virus_place_red").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_blue").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_yellow").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_green").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_purple").GetComponent<BacteriaPlaceView>());
+
 
         Observable.FromCoroutine(PhaseControlMain).Subscribe().AddTo(gameObject);
     }
@@ -210,7 +218,11 @@ public partial class MainScenePresenter : MonoBehaviour
                     }
 
                     var selectedCard = cardSelection.Result as CardControl;
-                    
+                    var selectedCardModel = cardVM[selectedCard];
+
+                    // みんなに選択された肉の情報を伝える
+                    curentSelectedMeat = selectedCardModel; 
+
                     yield return selectedCard.SelectedAnimation().ToYieldInstruction();
 
                     // 熟成器選択
@@ -225,10 +237,13 @@ public partial class MainScenePresenter : MonoBehaviour
                         continue;
                     }
 
+                    // みんなに肉の選択が終わったことを伝える
+                    curentSelectedMeat = null;
+
                     var selectedRipener = ripenerSelection.Result as RipenerView;
 
                     var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
-                    var selectedCardModel = cardVM[selectedCard];
+                    
                     playerModel.RemoveHand(selectedCardModel);
                     handView.RemoveHand(selectedCard);
                     selectedRipenerModel.AddCard(selectedCardModel);
@@ -295,6 +310,9 @@ public partial class MainScenePresenter : MonoBehaviour
                     {
                         Debug.Log("手札がクリックされた");
 
+                        // みんなに選択された肉の情報を伝える
+                        curentSelectedMeat = selectedCardModel;
+
                         var touchables = _bacterias.Select(b => b.OnTouchAsObservabale);
                         var ripenersViews = playerModel.Ripeners.Where(r => r.CanAdd(selectedCardModel)).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
                         touchables = touchables.Concat(ripenersViews.Select(r => r.OnTouchAsObservabale));
@@ -323,6 +341,9 @@ public partial class MainScenePresenter : MonoBehaviour
                             handView.RemoveHand(selectedCardControl);
                             yield return (touched as BacteriaPlaceView).AddCardAnimation(selectedCardControl).ToYieldInstruction();
                         }
+                        // みんなに肉の選択が終わったことを伝える
+                        curentSelectedMeat = null;
+
                         // カード削除アニメーション
                         yield return selectedCardControl.RemovedAnimation().ToYieldInstruction();
 
@@ -373,6 +394,7 @@ public partial class MainScenePresenter : MonoBehaviour
             }
 
             // 腐敗フェイズ
+            Debug.Log("腐敗フェイズ start");
             for (int i=0; i< NumberOfBacterias; i++)
             {
                 var token = bacteriaSrc.Draw();
@@ -406,9 +428,11 @@ public partial class MainScenePresenter : MonoBehaviour
                     }
                 }
             }
+            Debug.Log("腐敗フェイズ end");
 
 
             // 売却フェイズ
+            Debug.Log("売却フェイズ start");
             for (int i = 0; i < NumberOfPlayers; i++)
             {
                 int index = (round + i) % NumberOfPlayers;
@@ -425,7 +449,7 @@ public partial class MainScenePresenter : MonoBehaviour
                         break;
                     }
 
-                    var ripenersViews = ripenersModel.Where(r => r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
+                    var ripenersViews = ripenersModel.Where(r => !r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
 
                     // Todo : パスボタンを追加する
                     var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
@@ -437,16 +461,21 @@ public partial class MainScenePresenter : MonoBehaviour
                     }
 
                     var selectedRipener = ripenerSelection.Result as RipenerView;
+                    Debug.Log("熟成機がタッチされた");
 
                     var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
 
                     var cashout = selectedRipenerModel.AgingPeriod.Value * selectedRipenerModel.Maturity;
                     playerModel.Point += cashout;
                     selectedRipenerModel.Reset();
+
+                    yield return selectedRipener.ResetAnimation().ToYieldInstruction();
                 }
             }
+            Debug.Log("売却フェイズ end");
 
             // 仕込みフェイズ
+            Debug.Log("仕込みフェイズ start");
             for (int index = 0; index < NumberOfPlayers; index++)
             {
                 while (true)
@@ -489,11 +518,19 @@ public partial class MainScenePresenter : MonoBehaviour
                     selectedRipenerModel.AddCard(selectedCardModel);
                     yield return selectedRipener.AddCardAnimation(selectedCard).ToYieldInstruction();
 
+                    // カード削除アニメーション
+                    yield return selectedCard.RemovedAnimation().ToYieldInstruction();
+
+                    // カード整頓
+                    yield return _handViews[playerModel.Index].ArrangeHandAnimation().ToYieldInstruction();
+
                     break;
                 }
             }
+            Debug.Log("仕込みフェイズ end");
 
             // 熟成フェイズ
+            Debug.Log("熟成フェイズ start");
             foreach (var ripener in playerModels.SelectMany(player => player.Ripeners))
             {
                 if(!ripener.Empty.Value)
@@ -501,6 +538,7 @@ public partial class MainScenePresenter : MonoBehaviour
                     ripener.AddDay();
                 }
             }
+            Debug.Log("熟成フェイズ end");
         }
     }
 
@@ -537,6 +575,7 @@ public partial class MainScenePresenter : MonoBehaviour
             }
         }       
     }
+
 }
 
 

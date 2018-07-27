@@ -43,12 +43,33 @@ namespace TIDZ
             }
         }
 
-        // 除去する
-        public int Remove(MeatCard card)
+        // 菌が除去できるチェック
+        public bool CanRemove(MeatCard card)
         {
+            if (bacterias.Count == 0)
+            {
+                return false;
+            }
+            else 
+            {
+                return true;
+            }
+        }
+
+
+        // 除去する
+        public void Remove(MeatCard card)
+        {
+            /*
             var num = Removable(card);
             bacterias.RemoveRange(0, num);
             return num;
+            */
+            if (CanRemove(card))
+            {
+                bacterias.RemoveRange(0, Removable(card));
+            }
+
         }
 
         // アウトブレイクしたかどうか
