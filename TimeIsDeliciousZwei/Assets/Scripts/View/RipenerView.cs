@@ -13,6 +13,9 @@ public class RipenerView : MonoBehaviour {
     public Guid ModelID { get; set; }
 
     [SerializeField]
+    private GameObject _period;
+
+    [SerializeField]
     private GameObject _type;
 
     [SerializeField]
@@ -28,12 +31,17 @@ public class RipenerView : MonoBehaviour {
     private float time;
     SpriteGlowEffect _spriteGlow;
 
+
+    private Sprite[] _sprites;
+
     // Use this for initialization
     void Start()
     {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
         _mspresenter = GameObject.Find("MainScenePresenter").GetComponent<MainScenePresenter>();
         _spriteGlow = GetComponent<SpriteGlowEffect>();
+
+        _sprites = Resources.LoadAll<Sprite>("number");
     }
 
     public IObservable<MonoBehaviour> OnTouchAsObservabale
@@ -65,6 +73,9 @@ public class RipenerView : MonoBehaviour {
 
         card.transform.position = targetpos;
 
+        // periodをactiveにする
+        _period.SetActive(true);        
+
         // Typeをactiveにする
         _type.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("Type/" + card.Type.ToString());
         _type.SetActive(true);
@@ -75,16 +86,21 @@ public class RipenerView : MonoBehaviour {
 
     void Update()
     {
+        // 自分が選択可能ならぴかぴか
         MeatCard curentSelectedMeat = _mspresenter.curentSelectedMeat;
-
         if (curentSelectedMeat != null && ripener != null)
         {
            if (ripener.CanAdd(curentSelectedMeat))
            {
                 _spriteGlow.GlowColor = GetAlphaColor(_spriteGlow.GlowColor);
             }
-           
+        }
 
+        // periodを更新する
+        if(ripener != null)
+        {
+            Sprite sp = System.Array.Find<Sprite>(_sprites, (sprite) => sprite.name.Equals("number_" + ripener.AgingPeriod.Value.ToString()));
+            _period.GetComponent<SpriteRenderer>().sprite = sp;
         }
     }
 
@@ -96,5 +112,30 @@ public class RipenerView : MonoBehaviour {
         color.a = Mathf.Sin(time) * 0.5f + 0.5f;
 
         return color;
+    }
+
+    // 熟成機の初期化
+    public IObservable<Unit> ResetAnimation()
+    {
+        Debug.Log("Reset");
+        return Observable.FromCoroutine(_ => ResetAnimationCoroutine());
+    }
+
+    IEnumerator ResetAnimationCoroutine()
+    {
+        yield return null;
+
+        // periodを非activeにする
+        _period.SetActive(false);
+
+        // Typeを非activeにする
+        _type.SetActive(false);
+
+        // ウイルスの色をoff
+        for (int index = 0; index < _virus.Count; index++)
+        {
+            _virus[index].SetActive(false);
+        }
+        Debug.Log("Reset");
     }
 }

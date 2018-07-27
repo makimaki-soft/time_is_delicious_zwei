@@ -449,7 +449,7 @@ public partial class MainScenePresenter : MonoBehaviour
                         break;
                     }
 
-                    var ripenersViews = ripenersModel.Where(r => r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
+                    var ripenersViews = ripenersModel.Where(r => !r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
 
                     // Todo : パスボタンを追加する
                     var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
@@ -461,12 +461,15 @@ public partial class MainScenePresenter : MonoBehaviour
                     }
 
                     var selectedRipener = ripenerSelection.Result as RipenerView;
+                    Debug.Log("熟成機がタッチされた");
 
                     var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
 
                     var cashout = selectedRipenerModel.AgingPeriod.Value * selectedRipenerModel.Maturity;
                     playerModel.Point += cashout;
                     selectedRipenerModel.Reset();
+
+                    yield return selectedRipener.ResetAnimation().ToYieldInstruction();
                 }
             }
             Debug.Log("売却フェイズ end");
@@ -514,6 +517,12 @@ public partial class MainScenePresenter : MonoBehaviour
                     handView.RemoveHand(selectedCard);
                     selectedRipenerModel.AddCard(selectedCardModel);
                     yield return selectedRipener.AddCardAnimation(selectedCard).ToYieldInstruction();
+
+                    // カード削除アニメーション
+                    yield return selectedCard.RemovedAnimation().ToYieldInstruction();
+
+                    // カード整頓
+                    yield return _handViews[playerModel.Index].ArrangeHandAnimation().ToYieldInstruction();
 
                     break;
                 }
