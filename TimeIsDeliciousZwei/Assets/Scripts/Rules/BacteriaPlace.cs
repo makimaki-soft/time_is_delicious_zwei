@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿
+using System.Collections.Generic;
 using UnityEngine;
 using static TIDZ.MeatDef;
 
@@ -35,7 +36,7 @@ namespace TIDZ
         {
             if(card.Color == Color)
             {
-                return Mathf.Max(2, bacterias.Count);
+                return Mathf.Min(2, bacterias.Count);
             }
             else
             {

@@ -19,7 +19,7 @@ public class MainDeck : MonoBehaviour {
         view.Type = type;
 
         var position = transform.position;
-        position.z -= 2f;
+        position.z -= 1f;
         view.transform.position = position;
 
         return view;
@@ -41,5 +41,6 @@ public class MainDeck : MonoBehaviour {
             view.transform.position = new Vector3(view.transform.position.x, view.transform.position.y, view.transform.position.z - 0.5f);
             yield return null;
         }
+
     }
 }

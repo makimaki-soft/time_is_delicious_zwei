@@ -63,11 +63,11 @@ public partial class MainScenePresenter : MonoBehaviour
         _commonRes = GameObject.Find("ComRes").GetComponent<CommonResourceView>();
 
         _bacterias = new List<BacteriaPlaceView>();
-        _bacterias.Add(GameObject.Find("virus_place_red").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_blue").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_yellow").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_green").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_purple").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_red").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_blue").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_yellow").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_green").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_purple").GetComponent<BacteriaPlaceView>());
 
         // Model 初期化
         deckModel = CreateDeck();
@@ -165,6 +165,7 @@ public partial class MainScenePresenter : MonoBehaviour
                 var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
                 cardView.transform.parent = _handViews[playerModel.Index].transform;
                 cardVM[cardView] = cardModel;
+                cardView.isHand = true;
 
                 yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
 
@@ -189,7 +190,7 @@ public partial class MainScenePresenter : MonoBehaviour
             var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
             cardVM[cardView] = cardModel;
             cardView.transform.parent = ComRes.transform;
-
+            cardView.commonResourceIndex = n+1;
 
             yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
 
@@ -266,7 +267,10 @@ public partial class MainScenePresenter : MonoBehaviour
         }
 
         var cardTop = deckModel.Open();
-        cardVM[mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID)] = cardTop;
+        var tmpCardTopView = mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID);
+        tmpCardTopView.isBack = true;
+        cardVM[tmpCardTopView] = cardTop;
+
         yield return null; // オープンしたカードのViewが有効になるのを待つために1フレームずらす
 
         for (int round=0; round < int.MaxValue; round++)
@@ -338,8 +342,14 @@ public partial class MainScenePresenter : MonoBehaviour
                         {
                             Debug.Log("菌トークンを除去");
                             playerModel.RemoveHand(selectedCardModel);
+
+                            // todo: 除去できるできない判定
+                            BacteriaPlace bp = (touched as BacteriaPlaceView).bacteriaPlace;
+                            int removeBacteriaCount = bp.Removable(selectedCardModel);
+                            bp.Remove(selectedCardModel);
+                            Debug.Log("Removable End");
                             handView.RemoveHand(selectedCardControl);
-                            yield return (touched as BacteriaPlaceView).AddCardAnimation(selectedCardControl).ToYieldInstruction();
+                            yield return (touched as BacteriaPlaceView).AddCardAnimation(selectedCardControl, removeBacteriaCount).ToYieldInstruction();
                         }
                         // みんなに肉の選択が終わったことを伝える
                         curentSelectedMeat = null;
@@ -354,25 +364,33 @@ public partial class MainScenePresenter : MonoBehaviour
                     {
                         Debug.Log("共通リソースがクリックされた");
                         playerModel.AddHand(resourceModel.GetCard(selectedCardModel));
+                        selectedCardControl.isHand = true;
                         yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardControl).ToYieldInstruction();
 
                         var cardModel = deckModel.Open();
                         var cardView = mainDeck.CreateCard(cardModel.Type, cardModel.Color, cardModel.ID);
                         cardVM[cardView] = cardModel;
-
+                        cardView.transform.parent = ComRes.transform;
                         yield return mainDeck.OpenAnimation(cardView).ToYieldInstruction();
 
                         resourceModel.AddCard(cardModel);
-                        yield return _commonRes.AddResourceAnimation(cardView).ToYieldInstruction();
+                        yield return _commonRes.AddResourceAnimation(cardView, selectedCardControl.commonResourceIndex).ToYieldInstruction();
+
+                        // 親を手札オブジェクトに変えたほうがよさそう
                     }
                     else if (cardTopView.Contains(selectedCardControl))
                     {
                         Debug.Log("山札がクリックされた");
                         playerModel.AddHand(selectedCardModel);
+                        selectedCardControl.ShowFront();
+
                         yield return _handViews[playerModel.Index].AddHandAnimation(selectedCardControl).ToYieldInstruction();
 
                         cardTop = deckModel.Open();
-                        cardVM[mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID)] = cardTop;
+                        var cardView = mainDeck.CreateCard(cardTop.Type, cardTop.Color, cardTop.ID);
+                        cardVM[cardView] = cardTop;
+                        cardView.isBack = true;
+                        // 親を手札オブジェクトに変えたほうがよさそう
                         yield return null; // オープンしたカードのViewが有効になるのを待つために1フレームずらす
                     }
                     else
@@ -403,8 +421,11 @@ public partial class MainScenePresenter : MonoBehaviour
                 // トークンが出てくるアニメーションと待ち合わせ
 
                 var tagetPlace = bacteriaPlaces.Find(bp => bp.Color == token.Color);
+                var targetBacteriaPlaceView = _bacterias.Find(bpv => bpv._color == token.Color);
+                yield return targetBacteriaPlaceView.AddBacteriaAnimation().ToYieldInstruction();
 
-                if(!tagetPlace.OutBreakInCurrRound)
+
+                if (!tagetPlace.OutBreakInCurrRound)
                 {
                     tagetPlace.AddToken(token);
 

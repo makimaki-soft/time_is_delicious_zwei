@@ -16,16 +16,18 @@ public class CommonResourceView : MonoBehaviour {
 
     public int CardCount { get; set; }
 
-    public IObservable<Unit> AddResourceAnimation(CardControl card)
+    public IObservable<Unit> AddResourceAnimation(CardControl card, int? index=null)
     {
-        return Observable.FromCoroutine(_ => AddResourceAnimationCoroutine(card));
+        return Observable.FromCoroutine(_ => AddResourceAnimationCoroutine(card, index));
     }
 
-    IEnumerator AddResourceAnimationCoroutine(CardControl card)
+    IEnumerator AddResourceAnimationCoroutine(CardControl card, int? index=null)
     {
         var targetpos = transform.position;
-        targetpos.x += CommonResourcePoints[CardCount - 1].x;
-        targetpos.y += CommonResourcePoints[CardCount - 1].y;
+        var _index = index ?? CardCount;
+        Debug.Log("カード番号:" + _index);
+        targetpos.x += CommonResourcePoints[_index - 1].x;
+        targetpos.y += CommonResourcePoints[_index - 1].y;
         var srcpos = card.transform.position;
 
         var d = new Vector3((targetpos.x - srcpos.x) / 20f, (targetpos.y - srcpos.y) / 20f, (targetpos.z - srcpos.z) / 20f);
@@ -37,5 +39,7 @@ public class CommonResourceView : MonoBehaviour {
         }
 
         card.transform.position = targetpos;
+
+
     }
 }
