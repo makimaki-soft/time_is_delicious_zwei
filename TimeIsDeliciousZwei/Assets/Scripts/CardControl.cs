@@ -20,6 +20,8 @@ public class CardControl : MonoBehaviour
     public ColorElement Color { get; set; }
     public Guid ModelID { get; set; }
 
+    public bool isBack = false;
+
     GameObject _typeSprite;
     GameObject _colorElementSprite;
     List<Color> meatColors = new List<Color>
@@ -42,6 +44,9 @@ public class CardControl : MonoBehaviour
     // 初期位置
     // public Vector3 initPosition;
 
+    public int commonResourceIndex = 0;　// 0以外の場合はリソースカード
+    public bool isHand = false; // trueなら手札のカード
+
     // Use this for initialization
     void Start () {
         _eventTrigger = gameObject.AddComponent<ObservableEventTrigger>();
@@ -57,6 +62,11 @@ public class CardControl : MonoBehaviour
 
         _colorElementSprite = transform.Find("ColorElement").gameObject;
         _colorElementSprite.GetComponent<SpriteGlowEffect>().GlowColor = meatColors[(int)Color];
+
+        if (isBack)
+        {
+            ShowBack();
+        }
     }
 
     public IObservable<MonoBehaviour> OnTouchAsObservabale
@@ -146,7 +156,10 @@ public class CardControl : MonoBehaviour
     // カード選択時のアニメーション
     public IObservable<Unit> SelectedAnimation()
     {
-        isSelected = !isSelected;
+        if (isHand)
+        {
+            isSelected = !isSelected;
+        }
         var coroutine = Observable.FromCoroutine(SelectedAnimationCoroutine).Publish().RefCount();
         return coroutine;
     }
@@ -208,5 +221,20 @@ public class CardControl : MonoBehaviour
         color.a = Mathf.Sin(time) * 0.5f + 0.5f;
 
         return color;
+    }
+
+    public void ShowBack()
+    {
+        _typeSprite.SetActive(false);
+        _colorElementSprite.SetActive(false);
+        gameObject.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("card_back");
+    }
+
+    public void ShowFront()
+    {
+        _typeSprite.SetActive(true);
+        _colorElementSprite.SetActive(true);
+        gameObject.GetComponent<SpriteRenderer>().sprite = Resources.Load<Sprite>("card");
+
     }
 }
