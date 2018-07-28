@@ -117,7 +117,6 @@ public class RipenerView : MonoBehaviour {
     // 熟成機の初期化
     public IObservable<Unit> ResetAnimation()
     {
-        Debug.Log("Reset");
         return Observable.FromCoroutine(_ => ResetAnimationCoroutine());
     }
 
@@ -136,6 +135,5 @@ public class RipenerView : MonoBehaviour {
         {
             _virus[index].SetActive(false);
         }
-        Debug.Log("Reset");
     }
 }

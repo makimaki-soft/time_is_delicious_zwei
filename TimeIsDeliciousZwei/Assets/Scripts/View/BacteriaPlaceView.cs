@@ -23,6 +23,9 @@ public class BacteriaPlaceView : MonoBehaviour {
     private float time;
     SpriteGlowEffect _spriteGlow;
 
+    [SerializeField]
+    private List<GameObject> _bacterias = new List<GameObject>();
+
 
     // Use this for initialization
     void Start()
@@ -40,12 +43,14 @@ public class BacteriaPlaceView : MonoBehaviour {
         }
     }
 
-    public IObservable<Unit> AddCardAnimation(CardControl card)
+    // 菌除去時のアニーメーション
+    public IObservable<Unit> AddCardAnimation(CardControl card, int removeVirusCount)
     {
-        return Observable.FromCoroutine(_ => AddCardAnimationCoroutine(card));
+        Debug.Log("菌トークンを除去!");
+        return Observable.FromCoroutine(_ => AddCardAnimationCoroutine(card, removeVirusCount));
     }
 
-    IEnumerator AddCardAnimationCoroutine(CardControl card)
+    IEnumerator AddCardAnimationCoroutine(CardControl card, int removeVirusCount = 0)
     {
         var targetpos = transform.position;
         targetpos.z -= 0.2f;
@@ -60,7 +65,37 @@ public class BacteriaPlaceView : MonoBehaviour {
         }
 
         card.transform.position = targetpos;
+
+        Debug.Log(removeVirusCount + "個を消す");
+        
+        for (int i = 0; i < removeVirusCount; i++)
+        {
+            // 菌をランダムにinactiveにする
+            List<GameObject> activeBacterias = _bacterias.FindAll(bpv => bpv.activeSelf == true);
+            System.Random r = new System.Random(1000);
+            activeBacterias[r.Next(0, activeBacterias.Count - 1)].SetActive(false);
+        }
+        
     }
+
+    // 菌追加時のアニーメーション
+    public IObservable<Unit> AddBacteriaAnimation()
+    {
+        Debug.Log("菌を追加する！" + _color);
+        return Observable.FromCoroutine(_ => AddBacteriaAnimationCoroutine());
+    }
+
+    IEnumerator AddBacteriaAnimationCoroutine()
+    {
+        yield return null;
+
+        // 菌をランダムにactiveにする
+        List<GameObject> inactiveBacterias = _bacterias.FindAll(bpv => bpv.activeSelf == false);
+        System.Random r = new System.Random(1000);
+        inactiveBacterias[r.Next(0, inactiveBacterias.Count - 1)].SetActive(true);
+        
+    }
+
 
     void Update()
     {

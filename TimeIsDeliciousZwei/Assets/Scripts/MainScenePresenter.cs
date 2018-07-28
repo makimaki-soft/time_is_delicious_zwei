@@ -63,11 +63,11 @@ public partial class MainScenePresenter : MonoBehaviour
         _commonRes = GameObject.Find("ComRes").GetComponent<CommonResourceView>();
 
         _bacterias = new List<BacteriaPlaceView>();
-        _bacterias.Add(GameObject.Find("virus_place_red").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_blue").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_yellow").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_green").GetComponent<BacteriaPlaceView>());
-        _bacterias.Add(GameObject.Find("virus_place_purple").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_red").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_blue").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_yellow").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_green").GetComponent<BacteriaPlaceView>());
+        _bacterias.Add(GameObject.Find("bacteria_place_purple").GetComponent<BacteriaPlaceView>());
 
         // Model 初期化
         deckModel = CreateDeck();
@@ -338,8 +338,12 @@ public partial class MainScenePresenter : MonoBehaviour
                         {
                             Debug.Log("菌トークンを除去");
                             playerModel.RemoveHand(selectedCardModel);
+
+                            // todo: 除去できるできない判定
+                            BacteriaPlace bp = (touched as BacteriaPlaceView).bacteriaPlace;
+                            bp.Remove(selectedCardModel);
                             handView.RemoveHand(selectedCardControl);
-                            yield return (touched as BacteriaPlaceView).AddCardAnimation(selectedCardControl).ToYieldInstruction();
+                            yield return (touched as BacteriaPlaceView).AddCardAnimation(selectedCardControl, bp.Removable(selectedCardModel)).ToYieldInstruction();
                         }
                         // みんなに肉の選択が終わったことを伝える
                         curentSelectedMeat = null;
@@ -403,8 +407,11 @@ public partial class MainScenePresenter : MonoBehaviour
                 // トークンが出てくるアニメーションと待ち合わせ
 
                 var tagetPlace = bacteriaPlaces.Find(bp => bp.Color == token.Color);
+                var targetBacteriaPlaceView = _bacterias.Find(bpv => bpv._color == token.Color);
+                yield return targetBacteriaPlaceView.AddBacteriaAnimation().ToYieldInstruction();
 
-                if(!tagetPlace.OutBreakInCurrRound)
+
+                if (!tagetPlace.OutBreakInCurrRound)
                 {
                     tagetPlace.AddToken(token);
 
