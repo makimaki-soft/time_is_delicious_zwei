@@ -14,9 +14,16 @@ namespace TIDZ
 
             foreach (ColorElement color in Enum.GetValues(typeof(ColorElement)))
             {
-                for(int i=0; i<24; i++)
+                for(int i=0; i<12; i++)
                 {
-                    _source.Add(new Bacteria(color));
+                    if(i<4)
+                    {
+                        _source.Add(new Bacteria(color, true));
+                    }
+                    else
+                    {
+                        _source.Add(new Bacteria(color, false));
+                    }
                 }
             }
             Shuffle();
@@ -48,7 +55,7 @@ namespace TIDZ
         // 色を指定して菌トークンを取り出す
         public Bacteria DrawByColor(ColorElement color)
         {
-            var ret = _source.Find(b => b.Color == color);
+            var ret = _source.Find(b => b.Color == color && b.IsStrong == false);
             _source.Remove(ret);
             return ret;
         }
