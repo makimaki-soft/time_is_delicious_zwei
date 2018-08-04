@@ -9,10 +9,10 @@
             RibRoast,       // リブロース
             Katabara,       // 肩バラ
             Nakabara,       // ナカバラ
-            Harami,         // ハラミ
+            //Harami,         // ハラミ
             Shintama,       // シンタマ
             Momo,           // モモ
-            Sotomomo,       // ソトモモ
+            //Sotomomo,       // ソトモモ
             Lump,           // ランプ
         }
 

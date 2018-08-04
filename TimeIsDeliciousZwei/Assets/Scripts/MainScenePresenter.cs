@@ -7,6 +7,22 @@ using UniRx;
 using UnityEngine;
 using static TIDZ.MeatDef;
 
+
+static class Extensions
+{
+    public static IEnumerable<T> AsEnumerable<T>(this T self)
+    {
+        var ret = new List<T>();
+        ret.Add(self);
+        return ret;
+    }
+
+    public static int Parse(this string str)
+    {
+        return int.Parse(str);
+    }
+}
+
 public partial class MainScenePresenter : MonoBehaviour
 {
     private List<HandView> _handViews;
@@ -27,6 +43,9 @@ public partial class MainScenePresenter : MonoBehaviour
 
     [SerializeField]
     private MainDeck mainDeck;
+
+    [SerializeField]
+    private PassButtonView _passButton;
 
     // Model //
     private Deck<MeatCard> deckModel;
@@ -146,6 +165,8 @@ public partial class MainScenePresenter : MonoBehaviour
 
     IEnumerator PhaseControlMain()
     {
+        _passButton.Enabled = false;
+
         // 山札シャッフル
         deckModel.Shuffle();
 
@@ -454,6 +475,7 @@ public partial class MainScenePresenter : MonoBehaviour
 
             // 売却フェイズ
             Debug.Log("売却フェイズ start");
+            _passButton.Enabled = true;
             for (int i = 0; i < NumberOfPlayers; i++)
             {
                 int index = (round + i) % NumberOfPlayers;
@@ -467,13 +489,14 @@ public partial class MainScenePresenter : MonoBehaviour
                     // このプレイヤーの熟成器に何も入っていなかったら飛ばす
                     if( ripenersModel.Where(r => !r.Empty.Value).Count() == 0 )
                     {
+                        Debug.Log("自動スキップ");
                         break;
                     }
 
                     var ripenersViews = ripenersModel.Where(r => !r.Empty.Value).Select(model => _ripenerVeiws[index].FirstOrDefault(v => v.ModelID == model.ID));
 
-                    // Todo : パスボタンを追加する
-                    var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    var ripenerSelection = Observable.Amb(ripenersViews.Select(_ => _.OnTouchAsObservabale).Concat(_passButton.OnTouchAsObservabale.AsEnumerable())).First().ToYieldInstruction();
+                    
                     yield return ripenerSelection;
 
                     if (!ripenerSelection.HasResult)
@@ -481,37 +504,65 @@ public partial class MainScenePresenter : MonoBehaviour
                         continue;
                     }
 
-                    var selectedRipener = ripenerSelection.Result as RipenerView;
-                    Debug.Log("熟成機がタッチされた");
+                    if(ripenerSelection.Result is RipenerView)
+                    {
+                        var selectedRipener = ripenerSelection.Result as RipenerView;
+                        Debug.Log("熟成機がタッチされた");
 
-                    var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
+                        var selectedRipenerModel = ripenersModel.FirstOrDefault(m => m.ID == selectedRipener.ModelID);
 
-                    var cashout = selectedRipenerModel.AgingPeriod.Value * selectedRipenerModel.Maturity;
-                    playerModel.Point += cashout;
-                    selectedRipenerModel.Reset();
+                        var cashout = selectedRipenerModel.AgingPeriod.Value * selectedRipenerModel.Maturity;
+                        playerModel.Point += cashout;
+                        selectedRipenerModel.Reset();
 
-                    yield return selectedRipener.ResetAnimation().ToYieldInstruction();
+                        yield return selectedRipener.ResetAnimation().ToYieldInstruction();
+                    }
+                    else if(ripenerSelection.Result is PassButtonView)
+                    {
+                        Debug.Log("パスされた");
+                        break;
+                    }
                 }
             }
+            _passButton.Enabled = false;
             Debug.Log("売却フェイズ end");
 
             // 仕込みフェイズ
             Debug.Log("仕込みフェイズ start");
-            for (int index = 0; index < NumberOfPlayers; index++)
+            _passButton.Enabled = true;
+            for (int i = 0; i < NumberOfPlayers; i++)
             {
+                int index = (round + i) % NumberOfPlayers;
                 while (true)
                 {
                     var playerModel = playerModels[index];
                     var handView = _handViews[index];
                     var cardViews = playerModel.Hand.Select(model => handView.GetCardView(model.ID));
 
+                    if(playerModel.Hand.Count == 0)
+                    {
+                        Debug.Log("手札がないので仕込みはスキップ");
+                        break;
+                    }
+                    else if( playerModel.Ripeners.Where(r=>r.Empty.Value).Count() < 1 )
+                    {
+                        Debug.Log("空いている熟成器がないので仕込みはスキップ");
+                        break;
+                    }
+
                     // カード選択
-                    var cardSelection = Observable.Amb(cardViews.Select(_ => _.OnTouchAsObservabale)).First().ToYieldInstruction();
+                    var cardSelection = Observable.Amb(cardViews.Select(_ => _.OnTouchAsObservabale).Concat(_passButton.OnTouchAsObservabale.AsEnumerable())).First().ToYieldInstruction();
                     yield return cardSelection;
 
                     if (!cardSelection.HasResult)
                     {
                         continue;
+                    }
+
+                    if (cardSelection.Result is PassButtonView)
+                    {
+                        Debug.Log("パスされた");
+                        break;
                     }
 
                     var selectedCard = cardSelection.Result as CardControl;
@@ -548,6 +599,7 @@ public partial class MainScenePresenter : MonoBehaviour
                     break;
                 }
             }
+            _passButton.Enabled = false;
             Debug.Log("仕込みフェイズ end");
 
             // 熟成フェイズ

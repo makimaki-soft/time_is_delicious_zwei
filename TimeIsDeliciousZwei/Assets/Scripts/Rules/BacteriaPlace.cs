@@ -1,5 +1,6 @@
 ﻿
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using static TIDZ.MeatDef;
 
@@ -36,25 +37,18 @@ namespace TIDZ
         {
             if(card.Color == Color)
             {
-                return Mathf.Min(2, bacterias.Count);
+                return Mathf.Min(2, bacterias.Where(b=>b.IsStrong==false).Count());
             }
             else
             {
-                return Mathf.Max(1, bacterias.Count);
+                return Mathf.Max(1, bacterias.Where(b => b.IsStrong == false).Count());
             }
         }
 
         // 菌が除去できるチェック
         public bool CanRemove(MeatCard card)
         {
-            if (bacterias.Count == 0)
-            {
-                return false;
-            }
-            else 
-            {
-                return true;
-            }
+            return Removable(card) > 0;
         }
 
 
@@ -68,15 +62,17 @@ namespace TIDZ
             */
             if (CanRemove(card))
             {
-                bacterias.RemoveRange(0, Removable(card));
+                foreach(var rem in bacterias.Where(b => b.IsStrong == false).Take(Removable(card)))
+                {
+                    bacterias.Remove(rem);
+                }
             }
-
         }
 
         // アウトブレイクしたかどうか
         public bool OutBreak()
         {
-            return bacterias.Count > 5;
+            return bacterias.Count > 4;
         }
 
         public bool OutBreakInCurrRound { get; set; } = false;
